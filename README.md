@@ -3,19 +3,19 @@
 ## Some Weird Weapons Mod ~ GZDoom Edition
 ![](docimg/logo.png)
 
-**SWWM GZ** приносит в **GZDoom** коллекцию "лучшего" нестандартного оружия, которую я сделал для **Unreal Tournament**, а также множество новых вещей, которые туда не вошли.
+**SWWM GZ** brings to **GZDoom** a "best of" collection of custom weapons I've made for **Unreal Tournament**, plus many new things that didn't make the cut there.
 
-Он содержит оружие и предметы, обновлённые и восстановленные из старых проектов, таких как предыдущие записи **SWWM**, а также побочный проект **Zanaveth Ultra Suite**, а также, в частности, основную серию **UnSX**, которая никогда по-настоящему не увидела свет, так как вся работа, проделанная до сих пор, потеряна навсегда. Здесь и там могут быть некоторые оригинальные вещи, просто чтобы оживить их.
+It contains weapons and items remastered and revived from old projects such as the previous **SWWM** entries, along with the **Zanaveth Ultra Suite** side project, and also notably, the main **UnSX** series that never truly saw the light of day, as all work done on it so far has been lost forever. There may also be some original things here and there just to spice things up.
 
-Он также включает ***МНОГО*** истории из **Мультивселенной UnSX**. Я в значительной степени сходил с ума от всего, что вы можете прочитать, и я надеюсь, вам понравится погрузиться в этот огромный мир, полный его многочисленных персонажей и их историй.
+It also features ***A LOT*** of lore from the **UnSX multiverse**. I pretty much went wild here with all the stuff you can read, and I hope you enjoy immersing yourself into this vast world full of its many characters and their tales.
 
-Это первый полностью оригинальный мод, который я делаю с момента моей работы над **Doom Tournament** и **Doomreal**, и он эффективно основан на навыках, которые я приобрёл, работая над ними, а также на некоторых их кодах, которые служат для него своего рода фундаментом.
+This is the first fully original mod I'm making since my work on **Doom Tournament** and **Doomreal**, and it is effectively built on the skills I've gained working on them, and some of their code also serves as a sort of foundation for it.
 
-Надеюсь, вам понравится взрывать колени демонов.
+Hope you have fun exploding demon knees.
 
  — *Marisa*
 
-## Игрок
+## The Player
 ![](docimg/demolitionist_actionshot.png)
 
 You are an **Akari Labs Demolitionist Bot**, one of the very first units, fresh off the factory. You are the company's greatest achievement in AI-controlled combat units, trained to efficiently use all sorts of weaponry, built with premium quality armor plating and robust but flexible joints. In order to show off your capabilities, your creator has decided to send you out to fight the demonic invasion brought upon by *"those big stinkin' idiots at the **UAC**"*. Your time has come to kick ass and blow 'em up.
