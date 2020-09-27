@@ -1,5 +1,3 @@
-[Русский](README_RU.md)
-
 ### ![SWWM GZ](https://raw.githubusercontent.com/OrdinaryMagician/swwmgz_m/master/graphics/SWWMGZLogo.png)
 ### Revived through Doom Tournament
 
