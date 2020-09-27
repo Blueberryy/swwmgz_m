@@ -55,15 +55,14 @@ user int swwm_numscale = 0;			// damnum scaling (0 = use GZDoom scaling)
 user int swwm_poiscale = 0;			// point of interest scaling (0 = use GZDoom scaling)
 user int swwm_detscale = 0;			// item sense scaling (0 = use GZDoom scaling)
 server bool swwm_blood = false;			// custom blood/gibbing
-server int swwm_maxblood = 1000;		// max blood effects at any time
-server int swwm_maxgibs = 200;			// max gibs at any time
+server int swwm_maxblood = 400;			// max blood effects at any time
+server int swwm_maxgibs = 100;			// max gibs at any time
 server int swwm_maxcasings = 200;		// max casings and spent mags at any time
-server int swwm_maxdebris = 1000;		// max chunks of debris at any time
+server int swwm_maxdebris = 500;		// max chunks of debris at any time
 user bool swwm_fuzz = true;			// allows toggling the fuzz shader on the demolitionist menus, useful if you're streaming/recording since it destroys the encoding quality
 user bool swwm_cbtpause = true;			// wallbuster menu pauses the game
 user noarchive int swwm_cbtmeme = 0;		// easter egg, hidden cvar
 user noarchive bool swwm_cbttime = false;	// debug: times how long a reload takes
-server bool swwm_crouchjump = false;		// allows crouch-jumping (which looks weird af but some maps may need it)
 user noarchive int swwm_cbtlast = 0;		// last selected ammo for the wallbuster
 server bool swwm_cbtall = true;			// wallbuster breaks any wall, not just movable ones
 server bool swwm_doomfall = false;		// monsters take fall damage outside of hexen
@@ -80,3 +79,5 @@ user bool swwm_funtags = true;			// replace vanilla monster names with silly one
 server bool swwm_simplefog = false;		// simplified teleport fogs (useful to speed up slaughterwads)
 user bool swwm_bigtags = false;			// use a bigger font for targeter tags
 user bool swwm_intermusic = false;		// use original intermission music
+server int swwm_enemydrops = 0;			// allow enemies to drop ammo and weapons (-1 - no ammo or weapons, 0 - ammo only, 1 - both)
+server bool swwm_shotgib = true;		// buckshot can gib (some people don't like this for some reason, so it's an option now)

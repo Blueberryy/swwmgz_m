@@ -24,6 +24,17 @@ Class mkBlood : Actor
 		else b.SetShade(Color(80,0,0));
 		b.CopyBloodColor(target);
 	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
+	}
 	States
 	{
 	Spawn:
@@ -109,6 +120,8 @@ Class mkBloodDrop : Actor
 	bool killme;
 	bool dead;
 	mkBloodDrop prevblod, nextblod;
+	Sector tracksector;
+	int trackplane;
 
 	Default
 	{
@@ -136,10 +149,16 @@ Class mkBloodDrop : Actor
 		if ( dead )
 		{
 			// do nothing but follow floor movement and eventually fade out
-			if ( pos.z != floorz )
+			if ( tracksector )
 			{
-				SetZ(floorz);
-				UpdateWaterLevel(false);
+				double trackz;
+				if ( trackplane ) trackz = tracksector.ceilingplane.ZAtPoint(pos.xy);
+				else trackz = tracksector.floorplane.ZAtPoint(pos.xy);
+				if ( trackz != pos.z )
+				{
+					SetZ(trackz);
+					UpdateWaterLevel(false);
+				}
 			}
 			if ( (waterlevel > 0) || GetFloorTerrain().isliquid )
 			{
@@ -153,7 +172,7 @@ Class mkBloodDrop : Actor
 			FCheckPosition tm;
 			// gravitational pull
 			vel.z -= GetGravity();
-			// movement subdivision (these damn things are tiny
+			// movement subdivision (these damn things are tiny)
 			int steps = 8;
 			while ( (abs(vel.x) >= radius*steps) || (abs(vel.y) >= radius*steps) || (abs(vel.z) >= height*steps) )
 				steps++;
@@ -198,6 +217,21 @@ Class mkBloodDrop : Actor
 						A_StartSound("misc/blooddrop",volume:.1);
 						dead = true;
 						SWWMUtility.SetToSlope(self,FRandom[Blood](0,360));
+						tracksector = FloorSector;
+						trackplane = 0;
+						F3DFloor ff;
+						for ( int i=0; i<FloorSector.Get3DFloorCount(); i++ )
+						{
+							if ( !(FloorSector.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+							if ( !(FloorSector.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
+							ff = FloorSector.Get3DFloor(i);
+							break;
+						}
+						if ( ff )
+						{
+							tracksector = ff.model;
+							trackplane = 1;
+						}
 						frame = Random[Blood](5,8);
 						return;
 					}
@@ -721,8 +755,7 @@ Class SWWMGoreHandler : EventHandler
 	{
 		if ( e.Thing.Health > 0 ) return;
 		// no gib if it was erased
-		if ( e.DamageType == 'YnykronDeath' || e.DamageType == 'YnykronAltDeath' )
-			return;
+		if ( e.DamageType == 'Ynykron' ) return;
 		// only do special handling if they use our blood
 		if ( (e.Thing.GetBloodType(0) != "mkBlood") || e.Thing.bNOBLOOD )
 			return;

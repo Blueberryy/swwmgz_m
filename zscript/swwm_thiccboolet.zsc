@@ -140,6 +140,17 @@ Class SilverImpact : Actor
 			s.vel = pvel;
 		}
 	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
+	}
 	States
 	{
 	Spawn:
@@ -453,6 +464,17 @@ Class FatChodeImpact : Actor
 		}
 		Spawn("ExploLight3",pos);
 	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
+	}
 	States
 	{
 	Spawn:
@@ -490,6 +512,17 @@ Class FatChodeExplosionTrail : Actor
 		+NOTELEPORT;
 		+NOINTERACTION;
 		Scale 3.;
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
 	}
 	States
 	{
@@ -559,8 +592,10 @@ Class SilverBullet : SWWMWeapon
 	bool zoomed;
 	double zoomlevel;
 	ui TextureID reticle;
+	transient ui CVar useshaders;
 	bool initialized;
 	int rezoom;
+	bool proneme;
 
 	State dezoomstate;
 
@@ -586,8 +621,8 @@ Class SilverBullet : SWWMWeapon
 		if ( zl >= 10 )
 		{
 			Screen.DrawTexture(WeaponBox[1],false,bx-35,by-56,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true);
-			int zw = int(zl*31./160.);
-			Screen.DrawTexture(ZoomBar,false,bx-33,by-54,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true,DTA_WindowRight,zw);
+			double zw = zl*31./160.;
+			Screen.DrawTexture(ZoomBar,false,bx-33,by-54,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true,DTA_WindowRightF,zw);
 		}
 		Screen.DrawTexture(WeaponBox[0],false,bx-55,by-44,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true);
 		if ( chambered ) Screen.DrawTexture(BulletIcon[fcbchambered],false,bx-53,by-30,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true,DTA_ColorOverlay,fired?Color(128,0,0,0):Color(0,0,0,0));
@@ -623,7 +658,7 @@ Class SilverBullet : SWWMWeapon
 	override bool ReportHUDAmmo()
 	{
 		if ( (chambered && !fired) || (clipcount > 0) ) return true;
-		if ( (Ammo1.Amount <= 0) && (Ammo2.Amount <= 0) && (CountInv("SilverBullets") <= 0) && (CountInv("SilverBullets2") <= 0) ) return false;
+		if ( (Ammo1.Amount <= 0) && (Ammo2.Amount <= 0) && (Owner.CountInv("SilverBullets") <= 0) && (Owner.CountInv("SilverBullets2") <= 0) ) return false;
 		return true;
 	}
 	override bool CheckAmmo( int firemode, bool autoswitch, bool requireammo, int ammocount )
@@ -634,7 +669,7 @@ Class SilverBullet : SWWMWeapon
 			// allow player to still use the zoom even if there's no ammo left
 			// (should work fine, assuming I've correctly interpreted the execution chain of all this stuff)
 			if ( autoswitch && (fireMode == AltFire) ) return true;
-			return ((chambered && !fired) || (clipcount > 0) || (Ammo1.Amount > 0) || (Ammo2.Amount > 0) || (CountInv("SilverBullets") > 0) || (CountInv("SilverBullets2") > 0));
+			return ((chambered && !fired) || (clipcount > 0) || (Ammo1.Amount > 0) || (Ammo2.Amount > 0) || (Owner.CountInv("SilverBullets") > 0) || (Owner.CountInv("SilverBullets2") > 0));
 		}
 		return Super.CheckAmmo(firemode,autoswitch,requireammo,ammocount);
 	}
@@ -665,10 +700,27 @@ Class SilverBullet : SWWMWeapon
 		Super.DoEffect();
 		if ( zoomed ) crosshair = 99;
 		else crosshair = 0;
+		if ( !Owner || !Owner.player )
+		{
+			proneme = false;
+			lookscale = 1.;
+			return;
+		}
+		if ( (Owner.player.ReadyWeapon == self) && Owner.player.mo.CanCrouch() && (Owner.player.crouchfactor <= .5) )
+		{
+			if ( !proneme ) Owner.A_StartSound("silverbullet/crouch",CHAN_WEAPONEXTRA,CHANF_OVERLAP);
+			proneme = true;
+			lookscale = .4;
+			return;
+		}
+		if ( proneme ) Owner.A_StartSound("silverbullet/uncrouch",CHAN_WEAPONEXTRA,CHANF_OVERLAP);
+		proneme = false;
+		lookscale = 1.;
 	}
 	override void RenderUnderlay( RenderEvent e )
 	{
-		if ( zoomed && (Owner.player == players[consoleplayer]) )
+		if ( !useshaders ) useshaders = CVar.GetCVar('swwm_shaders',players[consoleplayer]);
+		if ( zoomed && (Owner.player == players[consoleplayer]) && useshaders.GetBool() )
 		{
 			Vector2 ss = (Screen.GetWidth(),Screen.GetHeight());
 			ss *= (512./ss.y);
@@ -810,7 +862,7 @@ Class SilverBullet : SWWMWeapon
 			}
 			if ( t.Results.HitType == TRACE_HitActor )
 			{
-				int dmg = t.Results.HitActor.DamageMobj(invoker,self,1000,'shot',DMG_FOILINVUL|DMG_USEANGLE|DMG_THRUSTLESS,atan2(t.Results.HitVector.y,t.Results.HitVector.x));
+				int dmg = t.Results.HitActor.DamageMobj(invoker,self,invoker.proneme?1000:500,'shot',DMG_FOILINVUL|DMG_USEANGLE|DMG_THRUSTLESS,atan2(t.Results.HitVector.y,t.Results.HitVector.x));
 				SWWMUtility.DoKnockback(t.Results.HitActor,t.Results.HitVector+(0,0,.025),dmg*20.*FRandom[SilverBullet](.8,1.2));
 				if ( t.Results.HitActor && !t.Results.HitActor.bNOBLOOD )
 				{
@@ -822,7 +874,7 @@ Class SilverBullet : SWWMWeapon
 			else if ( t.Results.HitType == TRACE_HitWall )
 			{
 				t.Results.HitLine.RemoteActivate(self,t.Results.Side,SPAC_Impact,t.Results.HitPos);
-				BusterWall.Bust(t.Results,2500,self,t.Results.HitVector,t.Results.HitPos.z);
+				BusterWall.Bust(t.Results,invoker.proneme?2500:2000,self,t.Results.HitVector,t.Results.HitPos.z);
 			}
 			let p = Spawn("FatChodeImpact",t.Results.HitPos+hitnormal*4);
 			p.angle = atan2(hitnormal.y,hitnormal.x);
@@ -851,7 +903,6 @@ Class SilverBullet : SWWMWeapon
 		A_ZoomFactor(basezoom);
 		A_PlayerFire();
 		SWWMHandler.DoFlash(self,Color(110,255,192,80),8);
-		A_Overlay(-9999,"Jet");
 		Vector3 x, y, z;
 		[x, y, z] = swwm_CoordUtil.GetAxes(pitch,angle,roll);
 		Vector3 origin = level.Vec3Offset(Vec2OffsetZ(0,0,player.viewz),10*x+1*y-1*z);
@@ -870,7 +921,7 @@ Class SilverBullet : SWWMWeapon
 		{
 			SilverBulletTracer sst = new("SilverBulletTracer");
 			sst.ignoreme = self;
-			sst.penetration = 2500.;
+			sst.penetration = invoker.proneme?2500.:1500.;
 			sst.hitlist.Clear();
 			sst.shootthroughlist.Clear();
 			sst.waterhitlist.Clear();
@@ -912,7 +963,8 @@ Class SilverBullet : SWWMWeapon
 			s.vel += vel*.5+x*FRandom[Silverbullet](4.,8.)+y*FRandom[Silverbullet](-1,1)+z*FRandom[Silverbullet](-1,1);
 		}
 		double fact = invoker.fcbchambered?270000.:320000.;
-		if ( player.mo.CanCrouch() && (player.crouchfactor != 1) ) fact /= 10.;
+		if ( invoker.proneme ) fact /= 8.;
+		else A_Overlay(-9999,"Jet");
 		SWWMUtility.DoKnockback(self,-x,fact);
 	}
 	action void A_DropCasing( bool fcb = false )
@@ -978,8 +1030,7 @@ Class SilverBullet : SWWMWeapon
 		invoker.specialf1 -= .06;
 		Vector3 x, y, z;
 		[x, y, z] = swwm_CoordUtil.GetAxes(pitch,angle,roll);
-		bool reduceme = (player.mo.CanCrouch()&&(player.crouchfactor != 1));
-		vel += x*min(1.,invoker.specialf1)*((reduceme?60.:600.)/Mass);
+		vel += x*min(1.,invoker.specialf1)*(600./Mass);
 		A_OverlayAlpha(PSP_WEAPON+2,clamp(invoker.specialf1*3.,0.,1.));
 		if ( Random[SilverBullet](0,int(invoker.specialf1*2)) )
 			self.DamageMobj(invoker,self,1,'jet');
@@ -1027,6 +1078,7 @@ Class SilverBullet : SWWMWeapon
 		Weapon.AmmoGive1 1;
 		Weapon.AmmoType2 "SilverBulletAmmo2";
 		Weapon.AmmoGive2 0;
+		SWWMWeapon.DropAmmoType "SilverBulletAmmo";
 		SilverBullet.ClipCount 5;
 		+SWWMWEAPON.NOFIRSTGIVE;
 		+WEAPON.NO_AUTO_SWITCH;

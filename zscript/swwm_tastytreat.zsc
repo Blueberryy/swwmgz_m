@@ -230,19 +230,22 @@ Class CandyPop : Actor
 	}
 	void FlashPlayer( int str, double rad )
 	{
-		double vfov = CVar.GetCVar('fov',players[consoleplayer]).GetFloat()*0.5;
-		double hfov = atan(Screen.GetAspectRatio()*tan(vfov));
-		let mo = players[consoleplayer].camera;
-		Vector3 pp;
-		if ( !mo.CheckSight(self) ) return;
-		if ( mo is 'PlayerPawn' ) pp = mo.Vec2OffsetZ(0,0,PlayerPawn(mo).player.viewz);
-		else pp = mo.Vec3Offset(0,0,mo.CameraHeight);
-		Vector3 sc = level.SphericalCoords(pp,pos,(mo.angle,mo.pitch));
-		if ( (abs(sc.x) < hfov) && (abs(sc.y) < vfov) && (sc.z < rad) )
+		if ( !SWWMUtility.InPlayerFOV(players[consoleplayer],self,rad) ) return;
+		let mo = players[consoleplayer].Camera;
+		double dist = Distance3D(mo);
+		str = int(str*(1.-(dist/rad)));
+		SWWMHandler.DoFlash(mo,Color(str,250,240,255),1);
+		SWWMHandler.DoFlash(mo,Color(str,224,0,255),3);
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
 		{
-			str = int(str*(1.-(sc.z/rad)));
-			SWWMHandler.DoFlash(mo,Color(str,250,240,255),1);
-			SWWMHandler.DoFlash(mo,Color(str,224,0,255),3);
+			if ( !SetState(CurState.NextState) )
+				return;
 		}
 	}
 	States
@@ -411,6 +414,17 @@ Class CandyMagTrail : Actor
 		+NOINTERACTION;
 		Scale 2.4;
 		Alpha 0.7;
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
 	}
 	States
 	{
@@ -773,6 +787,17 @@ Class CandyBulletImpact : Actor
 		Spawn("CandyLight",pos);
 		Spawn("CandyRing",pos);
 	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
+	}
 	States
 	{
 	Spawn:
@@ -807,6 +832,17 @@ Class CandyRing : Actor
 		+FORCEXYBILLBOARD;
 		+NOTELEPORT;
 		+NOINTERACTION;
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
 	}
 	States
 	{
@@ -1116,6 +1152,7 @@ Class CandyGun : SWWMWeapon
 		Weapon.AmmoGive1 1;
 		Weapon.AmmoGive2 1;
 		Weapon.AmmoUse2 0;
+		SWWMWeapon.DropAmmoType "CandyGunAmmo";
 		CandyGun.ClipCount 7;
 		+SWWMWEAPON.NOFIRSTGIVE;
 		+WEAPON.EXPLOSIVE;

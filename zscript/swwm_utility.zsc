@@ -10,6 +10,8 @@ enum EDoExplosionFlags
 	DE_EXTRAZTHRUST = 32,	// applies a higher Z thrust to enemies on ground
 };
 
+const FallbackTag = "AWESOME IT'S PENIS"; // used on tag processing, please don't mind the actual string used)
+
 Class SWWMUtility
 {
 	static clearscope void StripColor( out String str )
@@ -57,7 +59,15 @@ Class SWWMUtility
 			if ( i < len-1 )
 			{
 				int cp2 = workstr.GetNextCodePoint(i+1);
-				if ( (String.CharLower(cp1) == cp1) && (String.CharUpper(cp2) == cp2) )
+				// this looks awkward, but I have to also account for non-letter characters
+				// uppercase after lowercase
+				if ( (String.CharUpper(cp1) != cp1) && (String.CharLower(cp2) != cp2) )
+					str.AppendCharacter(0x20);
+				// uppercase after non-letter
+				else if ( (String.CharUpper(cp1) == cp1) && (String.CharLower(cp1) == cp1) && (String.CharLower(cp2) != cp2) )
+					str.AppendCharacter(0x20);
+				// non-letter after lowercase
+				else if ( (String.CharUpper(cp1) != cp1) && (String.CharLower(cp2) == cp2) && (String.CharUpper(cp2) == cp2) )
 					str.AppendCharacter(0x20);
 			}
 		}
@@ -219,13 +229,14 @@ Class SWWMUtility
 	// Thanks to ZZYZX and Nash
 	static play void SetToSlope( Actor a, double dang )
 	{
-		vector3 fnormal = a.CurSector.floorplane.Normal;
+		vector3 fnormal = a.FloorSector.floorplane.Normal;
 		// find closest 3d floor for its normal
 		F3DFloor ff;
-		for ( int i=0; i<a.CurSector.Get3DFloorCount(); i++ )
+		for ( int i=0; i<a.FloorSector.Get3DFloorCount(); i++ )
 		{
-			if ( !(a.CurSector.Get3DFloor(i).top.ZAtPoint(a.pos.xy) ~== a.floorz) ) continue;
-			ff = a.CurSector.Get3DFloor(i);
+			if ( !(a.FloorSector.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+			if ( !(a.FloorSector.Get3DFloor(i).top.ZAtPoint(a.pos.xy) ~== a.floorz) ) continue;
+			ff = a.FloorSector.Get3DFloor(i);
 			break;
 		}
 		if ( ff ) fnormal = -ff.top.Normal;
@@ -665,6 +676,21 @@ Class SWWMUtility
 			if ( !(flags&DE_NOBLEED) ) a.TraceBleed((ndmg>0)?ndmg:dmg,Source);
 		}
 		// TODO destructible geometry support
+	}
+
+	static play bool InPlayerFOV( PlayerInfo p, Actor a, double maxdist = 0. )
+	{
+		double vfov = CVar.GetCVar('fov',p).GetFloat()*0.5;
+		double hfov = atan(Screen.GetAspectRatio()*tan(vfov));
+		let mo = p.camera;
+		Vector3 pp;
+		if ( !mo.CheckSight(a,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) return false;
+		if ( mo is 'PlayerPawn' ) pp = mo.Vec2OffsetZ(0,0,PlayerPawn(mo).player.viewz);
+		else pp = mo.Vec3Offset(0,0,mo.CameraHeight);
+		Vector3 sc = level.SphericalCoords(pp,a.pos,(mo.angle,mo.pitch));
+		if ( (abs(sc.x) > hfov) && (abs(sc.y) > vfov) ) return false;
+		if ( (maxdist > 0.) && (sc.z < maxdist) ) return false;
+		return true;
 	}
 }
 

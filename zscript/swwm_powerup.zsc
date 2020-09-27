@@ -24,7 +24,7 @@ Class GrilledCheeseSandwich : Inventory
 		SWWMLoreLibrary.Add(other.player,"GCSandwich");
 		return Super.CreateCopy(other);
 	}
-	private void DoTheThing()
+	void DoTheThing( bool extrasafe = false )
 	{
 		SWWMHandler.DoFlash(Owner,Color(64,255,255,64),10);
 		Owner.A_QuakeEx(9,9,9,3,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
@@ -52,6 +52,10 @@ Class GrilledCheeseSandwich : Inventory
 		SWWMLoreLibrary.Add(Owner.player,"Nugget");
 		SWWMLoreLibrary.Add(Owner.player,"BlastSuit");
 		SWWMLoreLibrary.Add(Owner.player,"WarArmor");
+		if ( !extrasafe ) return;
+		let s = Owner.FindInventory("GrilledCheeseSafeguard");
+		if ( !s ) Owner.GiveInventory("GrilledCheeseSafeguard",1);
+		else Powerup(s).EffectTics = Powerup(s).default.EffectTics;
 	}
 	override bool Use( bool pickup )
 	{
@@ -80,10 +84,7 @@ Class GrilledCheeseSandwich : Inventory
 		{
 			newdamage = 0;
 			if ( (Owner.player == players[consoleplayer]) || bBigPowerup ) Owner.A_StartSound(UseSound,CHAN_ITEMEXTRA);
-			DoTheThing();
-			let s = Owner.FindInventory("GrilledCheeseSafeguard");
-			if ( !s ) Owner.GiveInventory("GrilledCheeseSafeguard",1);
-			else Powerup(s).EffectTics = Powerup(s).default.EffectTics;
+			DoTheThing(true);
 			Amount--;
 		}
 	}
@@ -745,8 +746,8 @@ Class RageSnd : Actor
 Class RagekitPower : Powerup
 {
 	Actor l, snd;
-	int lasteffect, lastrage;
-	transient int lastpulse;
+	int lasteffect;
+	transient int lastpulse, lastrage;
 
 	override double GetSpeedFactor()
 	{
@@ -771,7 +772,8 @@ Class RagekitPower : Powerup
 			return;
 		}
 		if ( Owner.player == players[consoleplayer] )
-			lastrage = SWWMHandler.AddOneliner("ragekit",2,20);
+			lastrage = SWWMHandler.AddOneliner("ragekit",2,20)+40;
+		Owner.A_AlertMonsters(5000);
 		SWWMHandler.DoFlash(Owner,Color(64,255,0,0),30);
 		Owner.A_QuakeEx(8,8,8,20,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
 		lasteffect = int.min;
@@ -791,8 +793,9 @@ Class RagekitPower : Powerup
 		if ( !(level.maptime%30) )
 		{
 			SWWMHandler.DoFlash(Owner,Color(16,255,0,0),5);
+			Owner.A_AlertMonsters(2000);
 			if ( (Owner.player == players[consoleplayer]) && (gametic > lastrage) && (CVar.GetCVar('swwm_mutevoice',players[consoleplayer]).GetInt() < 2) )
-				lastrage = SWWMHandler.AddOneliner("ragekit",2,5);
+				lastrage = SWWMHandler.AddOneliner("ragekit",2,5)+40;
 			Owner.A_QuakeEx(2,2,2,Random[Rage](1,2),0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:.5);
 			lastpulse = max(lastpulse,gametic+10);
 		}
@@ -805,6 +808,7 @@ Class RagekitPower : Powerup
 		Owner.A_StartSound("powerup/ragekitend",CHAN_ITEMEXTRA);
 		SWWMHandler.DoFlash(Owner,Color(128,255,0,0),30);
 		Owner.A_QuakeEx(4,4,4,20,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
+		Owner.A_AlertMonsters(2000);
 		if ( (EffectTics <= 0) && Owner && Owner.CheckLocalView() ) Console.Printf(StringTable.Localize("$D_RAGEKIT"));
 	}
 
@@ -841,10 +845,11 @@ Class RagekitPower : Powerup
 	void DoHitFX()
 	{
 		if ( level.maptime <= lasteffect+5 ) return;
+		Owner.A_AlertMonsters(5000);
 		SWWMHandler.DoFlash(Owner,Color(64,255,0,0),10);
 		Owner.A_QuakeEx(8,8,8,Random[Rage](3,8),0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
 		if ( (Owner.player == players[consoleplayer]) && (gametic > lastrage) )
-			lastrage = SWWMHandler.AddOneliner("ragekit",2,5);
+			lastrage = SWWMHandler.AddOneliner("ragekit",2,5)+40;
 		Owner.A_StartSound("powerup/ragekithit",CHAN_POWERUP);
 		lasteffect = level.maptime;
 		lastpulse = max(lastpulse,gametic+35);
@@ -852,7 +857,7 @@ Class RagekitPower : Powerup
 
 	override void ModifyDamage( int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags )
 	{
-		if ( !passive && ((damageType == 'Melee') || (damageType == 'Jump') || (damageType == 'Dash') || (damageType == 'GroundPound')) )
+		if ( !passive && ((damageType == 'Melee') || (damageType == 'Jump') || (damageType == 'Dash') || (damageType == 'Buttslam') || (damageType == 'GroundPound')) )
 		{
 			newdamage = damage*8;
 			DoHitFX();
@@ -1025,7 +1030,7 @@ Class LampMoth : Actor
 				if ( !bi.Thing || !(bi.Thing is 'CompanionLamp') ) continue;
 				Actor a = bi.Thing;
 				double dist = Distance3D(a);
-				if ( (a.frame == 0) || (dist > mindist) && !CheckSight(a) ) continue;
+				if ( (a.frame == 0) || (dist > mindist) && !CheckSight(a,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) continue;
 				mindist = dist;
 				lamp = a;
 				master = a.target;
@@ -1035,7 +1040,7 @@ Class LampMoth : Actor
 				else bFRIENDLY = false;
 			}
 		}
-		if ( !lamp || (lamp.frame == 0) || (Distance3D(lamp) > 250) || !CheckSight(lamp) ) return false;
+		if ( !lamp || (lamp.frame == 0) || (Distance3D(lamp) > 250) || !CheckSight(lamp,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) return false;
 		return true;
 	}
 	void A_SmoothWander()
@@ -1393,6 +1398,7 @@ Class CompanionLamp : Actor
 			// carry over the moths
 			for ( int i=0; i<moff.Size(); i++ )
 			{
+				if ( !moff[i] ) continue;
 				Vector3 whereto = level.Vec3Offset(moff[i].pos,rel);
 				if ( !level.IsPointInLevel(whereto) )
 					continue;
@@ -1426,6 +1432,7 @@ Class CompanionLamp : Actor
 			// find closest 3d floor for its normal
 			for ( int i=0; i<BlockingFloor.Get3DFloorCount(); i++ )
 			{
+				if ( !(BlockingFloor.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
 				if ( !(BlockingFloor.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
 				normal = -BlockingFloor.Get3DFLoor(i).top.Normal;
 				break;
@@ -1440,6 +1447,7 @@ Class CompanionLamp : Actor
 			// find closest 3d floor for its normal
 			for ( int i=0; i<BlockingCeiling.Get3DFloorCount(); i++ )
 			{
+				if ( !(BlockingCeiling.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
 				if ( !(BlockingCeiling.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
 				normal = -BlockingCeiling.Get3DFloor(i).bottom.Normal;
 				break;

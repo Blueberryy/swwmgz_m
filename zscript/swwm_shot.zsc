@@ -315,10 +315,11 @@ Class DragonBreathArm : Actor
 		if ( BlockingFloor )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingFloor.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingFloor.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingFloor.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
+				ff = BlockingFloor.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.top.Normal;
@@ -327,10 +328,11 @@ Class DragonBreathArm : Actor
 		else if ( BlockingCeiling )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingCeiling.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingCeiling.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingCeiling.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
+				ff = BlockingCeiling.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.bottom.Normal;
@@ -530,6 +532,17 @@ Class SaltImpact : Actor
 			s.vel = pvel;
 		}
 		Spawn("SaltLight2",pos);
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
 	}
 	States
 	{
@@ -830,13 +843,14 @@ Class OnFire : Actor
 
 	override void Tick()
 	{
+		if ( isFrozen() ) return;
 		if ( !victim )
 		{
 			A_StopSound(CHAN_5);
 			Destroy();
 			return;
 		}
-		SetOrigin(victim.pos,true);
+		SetOrigin(victim.pos,false);
 		if ( victim.waterlevel > 0 )
 		{
 			if ( lite ) lite.Destroy();
@@ -903,7 +917,7 @@ Class OnFire : Actor
 		while ( bt.Next() )
 		{
 			let t = bt.Thing;
-			if ( !t || !t.bSHOOTABLE || (t.Health <= 0) || (t == victim) || ((t == instigator) && (delay > 0)) || (victim.Distance3D(t) > victim.radius+t.radius+40) || !victim.CheckSight(t) ) continue;
+			if ( !t || !t.bSHOOTABLE || (t.Health <= 0) || (t == victim) || ((t == instigator) && (delay > 0)) || (victim.Distance3D(t) > victim.radius+t.radius+40) || !victim.CheckSight(t,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) continue;
 			int amt = max(1,amount/10);
 			OnFire of = IsOnFire(t);
 			if ( of )
@@ -1041,6 +1055,19 @@ Class OnFireTrail : Actor
 			s.scale *= .5+abs(scale.x)*(.5+special1/6.);
 		}
 	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		SetOrigin(level.Vec3Offset(pos,vel),true);
+		UpdateWaterLevel();
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
+		}
+	}
 	Default
 	{
 		RenderStyle "Add";
@@ -1121,10 +1148,11 @@ Class FlamingChunk : Actor
 		if ( BlockingFloor )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingFloor.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingFloor.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingFloor.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
+				ff = BlockingFloor.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.top.Normal;
@@ -1133,10 +1161,11 @@ Class FlamingChunk : Actor
 		else if ( BlockingCeiling )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingCeiling.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingCeiling.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingCeiling.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
+				ff = BlockingCeiling.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.bottom.Normal;
@@ -1426,10 +1455,11 @@ Class TheBall : Actor
 		if ( BlockingFloor )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingFloor.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingFloor.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingFloor.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
+				ff = BlockingFloor.Get3DFloor(i);
 				break;
 			}
 			if ( ff )
@@ -1444,10 +1474,11 @@ Class TheBall : Actor
 		else if ( BlockingCeiling )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingCeiling.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingCeiling.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingCeiling.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
+				ff = BlockingCeiling.Get3DFloor(i);
 				break;
 			}
 			if ( ff )
@@ -1665,7 +1696,7 @@ Class GoldenImpact : Actor
 				totaldist -= d.Distance;
 				if ( totaldist > 0 )
 				{
-					Vector3 bounced = d.HitDir-(2*hitnormal*(d.HitDir dot HitNormal));
+					Vector3 bounced = d.HitDir-(1.2*hitnormal*(d.HitDir dot HitNormal));
 					ang = atan2(bounced.y,bounced.x);
 					pt = asin(-bounced.z);
 					origin = d.HitLocation+hitnormal;
@@ -1675,6 +1706,17 @@ Class GoldenImpact : Actor
 			p.angle = atan2(hitnormal.y,hitnormal.x);
 			p.pitch = asin(-hitnormal.z);
 			p.target = target;
+		}
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
 		}
 	}
 	States
@@ -1790,7 +1832,7 @@ Class GoldenSubImpact : Actor
 				totaldist -= d.Distance;
 				if ( totaldist > 0 )
 				{
-					Vector3 bounced = d.HitDir-(2*hitnormal*(d.HitDir dot HitNormal));
+					Vector3 bounced = d.HitDir-(1.2*hitnormal*(d.HitDir dot HitNormal));
 					ang = atan2(bounced.y,bounced.x);
 					pt = asin(-bounced.z);
 					origin = d.HitLocation+hitnormal;
@@ -1800,6 +1842,17 @@ Class GoldenSubImpact : Actor
 			p.angle = atan2(hitnormal.y,hitnormal.x);
 			p.pitch = asin(-hitnormal.z);
 			p.target = target;
+		}
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
 		}
 	}
 	States
@@ -1853,6 +1906,17 @@ Class GoldenSubSubImpact : Actor
 			s.special1 = Random[ExploS](0,2);
 			s.scale *= 1.6;
 			s.alpha *= .2;
+		}
+	}
+	override void Tick()
+	{
+		if ( isFrozen() ) return;
+		if ( !CheckNoDelay() || (tics == -1) ) return;
+		if ( tics > 0 ) tics--;
+		while ( !tics )
+		{
+			if ( !SetState(CurState.NextState) )
+				return;
 		}
 	}
 	States
@@ -2056,7 +2120,7 @@ Class Spreadgun : SWWMWeapon
 		for ( int i=0; i<t.HitList.Size(); i++ )
 		{
 			int realdmg = dmg?dmg:t.HitList[i].HitDamage;
-			SWWMDamageAccumulator.Accumulate(t.HitList[i].HitActor,realdmg,invoker,self,'shot',!large);
+			SWWMDamageAccumulator.Accumulate(t.HitList[i].HitActor,realdmg,invoker,self,'shot',!large&&!swwm_shotgib);
 			SWWMUtility.DoKnockback(t.HitList[i].HitActor,t.HitList[i].x+(0,0,0.025),mm*FRandom[Spreadgun](0.4,1.2));
 			if ( t.HitList[i].HitActor.bNOBLOOD || t.HitList[i].HitActor.bINVULNERABLE )
 			{
@@ -2525,6 +2589,7 @@ Class Spreadgun : SWWMWeapon
 		Weapon.SelectionOrder 500;
 		Weapon.AmmoType1 "RedShell";
 		Weapon.AmmoGive1 1;
+		SWWMWeapon.DropAmmoType "Clip";
 		Stamina 15000;
 		+SWWMWEAPON.NOFIRSTGIVE;
 	}

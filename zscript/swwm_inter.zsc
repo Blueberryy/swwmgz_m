@@ -1,4 +1,9 @@
 // Custom intermission screens
+Class SWWMStatScreenData : Thinker
+{
+	// to prevent repetition
+	Array<int> lasttip, lastart, last4koma;
+}
 
 Class SWWMStatScreen : StatusScreen abstract
 {
@@ -8,6 +13,7 @@ Class SWWMStatScreen : StatusScreen abstract
 	transient CVar intertype, lang, origmus;
 	double hs, hs2;
 	Vector2 ss, ss2, origin, origin2;
+	double bgfade;
 
 	// returns MPlus if we're playing in Japanese, otherwise returns the requested font
 	Font LangFont( Font req )
@@ -25,12 +31,67 @@ Class SWWMStatScreen : StatusScreen abstract
 	private void drawSWWMBg()
 	{
 		if ( !intertype ) intertype = CVar.GetCVar('swwm_intertype',players[consoleplayer]);
+		let pdata = SWWMStatScreenData(ThinkerIterator.Create("SWWMStatScreenData",Thinker.STAT_STATIC).Next());
+		if ( !pdata )
+		{
+			pdata = new("SWWMStatScreenData");
+			pdata.ChangeStatNum(Thinker.STAT_STATIC);
+		}
 		if ( !whichart )
 		{
 			int no = 0;
-			if ( intertype.GetInt() == 1 ) no = StringTable.Localize("$SWWM_NFANART").ToInt();
-			//else if ( intertype.GetInt() == 2 ) no = StringTable.Localize("$SWWM_N4KOMA").ToInt();
-			whichart = Random[InterArt](1,no);
+			if ( intertype.GetInt() == 1 )
+			{
+				no = StringTable.Localize("$SWWM_NFANART").ToInt();
+				Array<Int> ents;
+				ents.Clear();
+				for ( int i=1; i<=no; i++ )
+					ents.Push(i);
+				if ( pdata.lastart.Size() >= no )
+				{
+					// exclude last one, start over
+					int excludeme = pdata.lastart[pdata.lastart.Size()-1];
+					ents.Delete(excludeme-1);
+					pdata.lastart.Clear();
+				}
+				else
+				{
+					for ( int i=0; i<pdata.lastart.Size(); i++ )
+					{
+						int f = ents.Find(pdata.lastart[i]);
+						if ( f != ents.Size() )
+							ents.Delete(f);
+					}
+				}
+				whichart = ents[Random[InterArt](0,ents.Size()-1)];
+				pdata.lastart.Push(whichart);
+			}
+			else if ( intertype.GetInt() == 2 )
+			{
+				no = StringTable.Localize("$SWWM_N4KOMA").ToInt();
+				Array<Int> ents;
+				ents.Clear();
+				for ( int i=1; i<=no; i++ )
+					ents.Push(i);
+				if ( pdata.last4koma.Size() >= no )
+				{
+					// exclude last one, start over
+					int excludeme = pdata.last4koma[pdata.last4koma.Size()-1];
+					ents.Delete(excludeme-1);
+					pdata.last4koma.Clear();
+				}
+				else
+				{
+					for ( int i=0; i<pdata.last4koma.Size(); i++ )
+					{
+						int f = ents.Find(pdata.last4koma[i]);
+						if ( f != ents.Size() )
+							ents.Delete(f);
+					}
+				}
+				whichart = ents[Random[InterArt](0,ents.Size()-1)];
+				pdata.last4koma.Push(whichart);
+			}
 		}
 		if ( !bgtex ) bgtex = TexMan.CheckForTexture("graphics/InterBG.png",TexMan.Type_MiscPatch);
 		double ar = Screen.GetAspectRatio();
@@ -68,11 +129,36 @@ Class SWWMStatScreen : StatusScreen abstract
 		if ( !whichtip )
 		{
 			int maxtip = StringTable.Localize("$SWWM_NINTERTIP").ToInt();
-			whichtip = Random[InterArt](1,maxtip);
+			Array<Int> ents;
+			ents.Clear();
+			for ( int i=1; i<=maxtip; i++ )
+				ents.Push(i);
+			if ( pdata.lasttip.Size() >= maxtip )
+			{
+				// exclude last one, start over
+				int excludeme = pdata.lasttip[pdata.lasttip.Size()-1];
+				ents.Delete(excludeme-1);
+				pdata.lasttip.Clear();
+			}
+			else
+			{
+				for ( int i=0; i<pdata.lasttip.Size(); i++ )
+				{
+					int f = ents.Find(pdata.lasttip[i]);
+					if ( f != ents.Size() )
+						ents.Delete(f);
+				}
+			}
+			whichtip = ents[Random[InterArt](0,ents.Size()-1)];
+			pdata.lasttip.Push(whichtip);
 		}
 		String tipstr = "\cd"..String.Format(StringTable.Localize("$SWWM_INTERTIP"),whichtip).."\c-\n"..StringTable.Localize(String.Format("$SWWM_INTERTIP%d",whichtip));
-		BrokenLines l = fnt.BreakLines(tipstr,300);
-		int bw = int(308*hs), bh = int((fnt.GetHeight()*l.Count()+12)*hs);
+		BrokenLines l = fnt.BreakLines(tipstr,400);
+		int lw = 0;
+		for ( int i=0; i<l.Count(); i++ )
+			if ( l.StringWidth(i) > lw )
+				lw = l.StringWidth(i);
+		int bw = int((lw+8)*hs), bh = int((fnt.GetHeight()*l.Count()+12)*hs);
 		double xx = 10, yy = (ss.y-10)-(fnt.GetHeight()*l.Count()+4);
 		Screen.Dim("Black",.8,int((xx-4)*hs),int((yy-4)*hs),bw,bh);
 		for ( int i=0; i<l.Count(); i++ )
@@ -162,6 +248,75 @@ Class SWWMStatScreen : StatusScreen abstract
 			drawNoState();
 			break;
 		}
+		if ( bgfade <= 0. ) return;
+		// redraw bgs on top, hiding the rest of the ui
+		if ( intertype.GetInt() == 1 )
+		{
+			double ar = Screen.GetAspectRatio();
+			Vector2 tsize = TexMan.GetScaledSize(arttex);
+			double sar = tsize.x/tsize.y;
+			Vector2 vsize;
+			if ( sar > ar ) vsize = (tsize.y*ar,tsize.y);
+			else if ( sar < ar ) vsize = (tsize.x,tsize.x/ar);
+			else vsize = tsize;
+			Screen.DrawTexture(arttex,false,(vsize.x-tsize.x)/2,(vsize.y-tsize.y)/2,DTA_VirtualWidthF,vsize.x,DTA_VirtualHeightF,vsize.y,DTA_KeepRatio,true,DTA_Alpha,bgfade);
+		}
+		/*else if ( intertype.GetInt() == 2 )
+		{
+			// TBD when there's art
+		}*/
+		else
+		{
+			double ar = Screen.GetAspectRatio();
+			Vector2 tsize = TexMan.GetScaledSize(bgtex);
+			double sar = tsize.x/tsize.y;
+			Vector2 vsize;
+			if ( sar > ar ) vsize = (tsize.y*ar,tsize.y);
+			else if ( sar < ar ) vsize = (tsize.x,tsize.x/ar);
+			else vsize = tsize;
+			Screen.DrawTexture(bgtex,false,(vsize.x-tsize.x)/2,(vsize.y-tsize.y)/2,DTA_VirtualWidthF,vsize.x,DTA_VirtualHeightF,vsize.y,DTA_KeepRatio,true,DTA_Alpha,bgfade);
+		}
+	}
+	protected void checkForAccelerateNew( void )
+	{
+		// check for button presses to skip delays (but only recognize fire/use buttons)
+		for ( int i=0; i < MAXPLAYERS; i++ )
+		{
+			if ( !playeringame[i] ) continue;
+			{
+				PlayerInfo p = players[i];
+				if ( (p.cmd.buttons^p.oldbuttons) && ((p.cmd.buttons&p.oldbuttons) == p.oldbuttons) && !p.Bot && (p.cmd.buttons&(BT_ATTACK|BT_USE)) )
+				{
+					acceleratestage = 1;
+					playerready[i] = true;
+				}
+				p.oldbuttons = p.buttons;
+			}
+		}
+	}
+	override void Ticker( void )
+	{
+		bcnt++;
+		if ( bcnt == 1 ) StartMusic();
+		checkForAccelerateNew();
+		switch (CurState)
+		{
+		case StatCount:
+			updateStats();
+			break;
+		case ShowNextLoc:
+			updateShowNextLoc();
+			break;
+		case NoState:
+			updateNoState();
+			break;
+		case LeavingIntermission:
+			// sorry nothing
+			break;
+		}
+		// check fade
+		if ( players[consoleplayer].cmd.buttons&BT_ALTATTACK ) bgfade = min(1.,bgfade+3./Thinker.TICRATE);
+		else bgfade = max(0.,bgfade-4./Thinker.TICRATE);
 	}
 	protected String TimeStr( int secs )
 	{

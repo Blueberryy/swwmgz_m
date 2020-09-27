@@ -180,10 +180,11 @@ Class PusherProjectile : Actor
 		if ( BlockingFloor )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingFloor.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingFloor.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingFloor.Get3DFloor(i).top.ZAtPoint(pos.xy) ~== floorz) ) continue;
+				ff = BlockingFloor.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.top.Normal;
@@ -192,10 +193,11 @@ Class PusherProjectile : Actor
 		else if ( BlockingCeiling )
 		{
 			// find closest 3d floor for its normal
-			for ( int i=0; i<CurSector.Get3DFloorCount(); i++ )
+			for ( int i=0; i<BlockingCeiling.Get3DFloorCount(); i++ )
 			{
-				if ( !(CurSector.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
-				ff = CurSector.Get3DFloor(i);
+				if ( !(BlockingCeiling.Get3DFloor(i).flags&F3DFloor.FF_SOLID) ) continue;
+				if ( !(BlockingCeiling.Get3DFloor(i).bottom.ZAtPoint(pos.xy) ~== ceilingz) ) continue;
+				ff = BlockingCeiling.Get3DFloor(i);
 				break;
 			}
 			if ( ff ) HitNormal = -ff.bottom.Normal;
@@ -344,8 +346,8 @@ Class PusherWeapon : SWWMWeapon
 		if ( !ChargeBar ) ChargeBar = TexMan.CheckForTexture("graphics/HUD/PusherBar.png",TexMan.Type_Any);
 		Screen.DrawTexture(WeaponBox,false,bx-60,by-9,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true);
 		int chg = clamp(ChargeInter?ChargeInter.GetValue():int(chargelevel*100),0,100);
-		int cw = int(chg*56./100.);
-		Screen.DrawTexture(ChargeBar,false,bx-58,by-7,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true,DTA_WindowRight,cw);
+		double cw = chg*56./100.;
+		Screen.DrawTexture(ChargeBar,false,bx-58,by-7,DTA_VirtualWidthF,ss.x,DTA_VirtualHeightF,ss.y,DTA_KeepRatio,true,DTA_WindowRightF,cw);
 	}
 
 	override void HudTick()
