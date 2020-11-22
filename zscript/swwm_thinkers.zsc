@@ -334,7 +334,7 @@ Class SWWMLoreLibrary : Thinker
 	Array<SWWMLore> ent;
 	int lastaddtic;
 
-	bool DirectAdd( String ref )
+	static bool PreVerify( String ref )
 	{
 		// restrictions
 		if ( !(gameinfo.gametype&(GAME_Raven|GAME_Strife)) )
@@ -348,6 +348,7 @@ Class SWWMLoreLibrary : Thinker
 			if ( ref ~== "Cronos" ) return true;
 			if ( ref ~== "Kirin" ) return true;	// not met
 			if ( ref ~== "Fabricator" ) return true;	// not yet introduced
+			if ( ref ~== "Administrators" ) return true;	// not met
 		}
 		if ( !(gameinfo.gametype&GAME_Strife) )
 		{
@@ -363,6 +364,8 @@ Class SWWMLoreLibrary : Thinker
 		if ( ref ~== "BlackfireIgniter" ) return true;
 		if ( ref ~== "EMPCarbine" ) return true;
 		if ( ref ~== "RayKhom" ) return true;
+		// same for white lady
+		if ( ref ~== "WhiteLady" ) return true;
 		// check if entry is for a collectible
 		for ( int i=0; i<AllActorClasses.Size(); i++ )
 		{
@@ -373,6 +376,33 @@ Class SWWMLoreLibrary : Thinker
 			if ( (c.GetClassName() == ref) && !(gameinfo.gametype&def.avail) )
 				return true;
 		}
+		ref = ref.MakeUpper();
+		String tag = String.Format("SWWM_LORETAG_%s",ref);
+		String tab = String.Format("SWWM_LORETAB_%s",ref);
+		String text = String.Format("SWWM_LORETXT_%s",ref);
+		// check that it's valid
+		if ( StringTable.Localize(tag,false) == tag ) return true;
+		if ( StringTable.Localize(tab,false) == tab )
+		{
+			Console.Printf("Entry \"%s\" defines no tab.",ref);
+			return true;
+		}
+		if ( StringTable.Localize(text,false) == text )
+		{
+			Console.Printf("Entry \"%s\" defines no text.",ref);
+			return true;
+		}
+		return false;
+	}
+
+	bool DirectAdd( String ref )
+	{
+		if ( PreVerify(ref) ) return true;
+		return InternalAdd(ref);
+	}
+
+	private bool InternalAdd( String ref )
+	{
 		ref = ref.MakeUpper();
 		String tag = String.Format("SWWM_LORETAG_%s",ref);
 		String tab = String.Format("SWWM_LORETAB_%s",ref);
@@ -390,6 +420,8 @@ Class SWWMLoreLibrary : Thinker
 				text = "SWWM_LORETXT_ANARUKON2";	// comments from miyamoto-xanai wedding
 			else if ( text ~== "SWWM_LORETXT_HELL" )
 				text = "SWWM_LORETXT_HELL3";	// met father nostros during the wedding
+			else if ( text ~== "SWWM_LORETXT_NANA" )
+				text = "SWWM_LORETXT_NANA3";	// stuff that happened at the wedding
 			else if ( text ~== "SWWM_LORETXT_GHOULHUNT" )
 				text = "SWWM_LORETXT_GHOULHUNT2";	// met anthon anderken during the wedding
 			else if ( text ~== "SWWM_LORETXT_RAGEKIT" )
@@ -429,18 +461,8 @@ Class SWWMLoreLibrary : Thinker
 				text = "SWWM_LORETXT_BIGSHOT2";	// predictions about crimes_m
 			else if ( text ~== "SWWM_LORETXT_AKARIPROJECT" )
 				text = "SWWM_LORETXT_AKARIPROJECT2";	// fiction becomes reality
-		}
-		// check that it's valid
-		if ( StringTable.Localize(tag,false) == tag ) return false;
-		if ( StringTable.Localize(tab,false) == tab )
-		{
-			Console.Printf("Entry \"%s\" defines no tab.",ref);
-			return false;
-		}
-		if ( StringTable.Localize(text,false) == text )
-		{
-			Console.Printf("Entry \"%s\" defines no text.",ref);
-			return false;
+			else if ( text ~== "SWWM_LORETXT_GODS" )
+				text = "SWWM_LORETXT_GODS2";	// beyond gods
 		}
 		// check if existing
 		for ( int i=0; i<ent.Size(); i++ )
@@ -482,6 +504,7 @@ Class SWWMLoreLibrary : Thinker
 
 	static void Add( PlayerInfo p, String ref )
 	{
+		if ( PreVerify(ref) ) return;
 		SWWMLoreLibrary ll = Find(p);
 		if ( !ll )
 		{
@@ -489,7 +512,7 @@ Class SWWMLoreLibrary : Thinker
 			ll.ChangeStatNum(STAT_STATIC);
 			ll.myplayer = p;
 		}
-		ll.DirectAdd(ref);
+		ll.InternalAdd(ref);
 	}
 
 	void MarkRead( int idx )
@@ -778,10 +801,11 @@ Class SWWMCombatTracker : Thinker
 	Vector3 pos, prevpos, oldpos, oldprev;
 	PlayerInfo myplayer;
 	SWWMCombatTracker prev, next;
-	bool legged;
+	bool legged, mutated;
 	int tcnt;
 	double height;
 	transient CVar funtags, maxdist;
+	bool bBOSS, bFRIENDLY;
 
 	void UpdateTag()
 	{
@@ -820,7 +844,7 @@ Class SWWMCombatTracker : Thinker
 		}
 		else t.lasthealth = t.maxhealth = target.health;
 		t.updated = int.min;
-		t.height = t.mytarget.height;
+		t.height = target.height;
 		t.pos = level.Vec3Offset(target.pos,(0,0,t.height));
 		t.prevpos = level.Vec3Offset(target.prev,(0,0,t.height));
 		t.oldpos = target.pos;
@@ -828,6 +852,8 @@ Class SWWMCombatTracker : Thinker
 		t.intp = DynamicValueInterpolator.Create(t.lasthealth,.5,1,100);
 		t.myplayer = target.player;
 		t.next = hnd.trackers;
+		t.bBOSS = target.bBOSS;
+		t.bFRIENDLY = target.bFRIENDLY;
 		if ( hnd.trackers ) hnd.trackers.prev = t;
 		hnd.trackers = t;
 		hnd.trackers_cnt++;
@@ -903,6 +929,18 @@ Class SWWMCombatTracker : Thinker
 				if ( lasthealth > maxhealth ) maxhealth = lasthealth;
 			}
 		}
+		if ( legged && !mutated )
+		{
+			// check inventory regularly to mark as mutated
+			for ( Inventory i=mytarget.inv; i; i=i.inv )
+			{
+				if ( i.GetClassName() != "LDLegendaryMonsterTransformed" ) continue;
+				mutated = true;
+				Console.Printf(StringTable.Localize("$SWWM_LTFORM"),mytag);
+			}
+		}
+		bBOSS = mytarget.bBOSS|(maxhealth>1000);
+		bFRIENDLY = mytarget.bFRIENDLY;
 		lasthealth = mytarget.Health;
 		intp.Update(lasthealth);
 		if ( !maxdist ) maxdist = CVar.GetCVar('swwm_maxtargetdist',players[consoleplayer]);
@@ -912,20 +950,20 @@ Class SWWMCombatTracker : Thinker
 			if ( (gameinfo.gametype&GAME_Strife) && (!mytarget.bINCOMBAT && !mytarget.bJUSTATTACKED) || (mytarget is 'Beggar') || (mytarget is 'Peasant') )
 				straifu = true;
 			int mxdist = maxdist.GetInt();
-			// players (but not voodoo dolls), always visible in sp/coop
-			if ( !deathmatch && mytarget.player && (mytarget.player.mo == mytarget) ) updated = level.maptime+35;
+			// players (but not voodoo dolls), always visible in sp/coop/teamplay
+			if ( mytarget.player && (mytarget.player.mo == mytarget) && (!deathmatch || (teamplay && (mytarget.player.GetTeam() == players[consoleplayer].GetTeam()))) ) updated = level.maptime+35;
 			// friendlies within a set distance
-			else if ( mytarget.bFRIENDLY && ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].mo).length() < mxdist)) && players[consoleplayer].mo.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime+35;
+			else if ( mytarget.bFRIENDLY && ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].Camera).length() < mxdist)) && players[consoleplayer].Camera.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime+35;
 			// enemies within a set distance that have us as target
-			else if ( !straifu && mytarget.target && (mytarget.target.Health > 0) && (mytarget.target.player == players[consoleplayer]) && ((mxdist <= 0) || (mytarget.Vec3To(mytarget.target).length() < mxdist)) && mytarget.CheckSight(mytarget.target,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime+70;
+			else if ( !straifu && mytarget.target && (mytarget.target.Health > 0) && (mytarget.target.player == players[consoleplayer]) && ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].Camera).length() < mxdist)) && players[consoleplayer].Camera.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime+70;
 			// any visible enemies within one quarter of the set distance
-			else if ( ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].mo).length() < (mxdist/4))) && players[consoleplayer].mo.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime;
+			else if ( ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].Camera).length() < (mxdist/4))) && players[consoleplayer].Camera.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime;
 		}
 		else if ( (mytarget is 'BossBrain') || (mytarget is 'SWWMHangingKeen') )
 		{
 			int mxdist = maxdist.GetInt();
 			// special stuff, only if visible
-			if ( ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].mo).length() < (mxdist/4))) && players[consoleplayer].mo.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime;
+			if ( ((mxdist <= 0) || (mytarget.Vec3To(players[consoleplayer].Camera).length() < (mxdist/4))) && players[consoleplayer].Camera.CheckSight(mytarget,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) updated = level.maptime;
 		}
 	}
 }
@@ -960,56 +998,41 @@ Class UglyBoyGetsFuckedUp : Thinker
 	}
 }
 
-// Gotta force it someway
-Class ForcedFallerDamager : Thinker
+// Track last damage source to blame fall damage on
+Class SWWMWhoPushedMe : Thinker
 {
-	Actor mybody, instigator;
-	double lastvelz;
-	bool wasflying;
+	Actor tracked, instigator;
 
-	static void TrackBody( Actor b )
-	{
-		if ( !b ) return;
-		let ffd = new("ForcedFallerDamager");
-		ffd.ChangeStatNum(STAT_USER);
-		ffd.mybody = b;
-		ffd.lastvelz = b.vel.z;
-		ffd.wasflying = ((b.pos.z>b.floorz)&&b.TestMobjZ());
-	}
 	static void SetInstigator( Actor b, Actor whomst )
 	{
 		if ( !b || !whomst ) return;
-		let ti = ThinkerIterator.Create("ForcedFallerDamager",STAT_USER);
-		ForcedFallerDamager ffd;
-		while ( ffd = ForcedFallerDamager(ti.Next()) )
+		let ti = ThinkerIterator.Create("SWWMWhoPushedMe",STAT_INFO);
+		SWWMWhoPushedMe ffd;
+		while ( ffd = SWWMWhoPushedMe(ti.Next()) )
 		{
-			if ( ffd.mybody != b ) continue;
+			if ( ffd.tracked != b ) continue;
 			ffd.instigator = whomst;
-			break;
-		}
-	}
-	override void Tick()
-	{
-		if ( !swwm_doomfall || !mybody )
-		{
-			Destroy();
 			return;
 		}
-		bool isflying = ((mybody.pos.z>mybody.floorz)&&mybody.TestMobjZ())||mybody.bNOGRAVITY;
-		if ( wasflying && !isflying && (lastvelz < -23) && !level.monsterfallingdamage && !(mybody.floorsector.flags&Sector.SECF_NOFALLINGDAMAGE) )
+		ffd = new("SWWMWhoPushedMe");
+		ffd.ChangeStatNum(STAT_INFO);
+		ffd.tracked = b;
+		ffd.instigator = whomst;
+	}
+
+	static Actor RecallInstigator( Actor b )
+	{
+		if ( !b ) return null;
+		let ti = ThinkerIterator.Create("SWWMWhoPushedMe",STAT_INFO);
+		SWWMWhoPushedMe ffd;
+		while ( ffd = SWWMWhoPushedMe(ti.Next()) )
 		{
-			// big hurt
-			int dmg;
-			if ( lastvelz < -35 ) dmg = Actor.TELEFRAG_DAMAGE;
-			else dmg = int((-lastvelz-23)*6);
-			mybody.DamageMobj(instigator,instigator,dmg,'Falling');
+			if ( ffd.tracked != b ) continue;
+			Actor whomst = ffd.instigator;
+			ffd.Destroy();
+			return whomst;
 		}
-		if ( !isflying && wasflying ) instigator = null;
-		wasflying = isflying;
-		lastvelz = mybody.vel.z;
-		// wait until body is dead
-		if ( mybody.Health > 0 ) return;
-		Destroy();
+		return null;
 	}
 }
 

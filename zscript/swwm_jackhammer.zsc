@@ -242,7 +242,7 @@ Class PusherProjectile : Actor
 		// re-do the bounce with our formula
 		vel = .8*((vel dot HitNormal)*HitNormal*(-1.8+FRandom[Pusher](.0,.8))+vel);
 		A_StartSound("pusher/bounce",volume:.3);
-		A_AlertMonsters(300);
+		A_AlertMonsters(swwm_uncapalert?0:300);
 		if ( vel.length() < 5 )
 		{
 			special1 = 0;
@@ -296,7 +296,7 @@ Class PusherProjectile : Actor
 	{
 		if ( target == lasthit ) return 0;
 		lasthit = target;
-		if ( target.bNOBLOOD || target.bINVULNERABLE ) A_StartSound("pusher/althit",CHAN_WEAPON,CHANF_OVERLAP);
+		if ( target.bNOBLOOD || target.bDORMANT || target.bINVULNERABLE ) A_StartSound("pusher/althit",CHAN_WEAPON,CHANF_OVERLAP);
 		else A_StartSound("pusher/altmeat",CHAN_WEAPON,CHANF_OVERLAP);
 		target.A_QuakeEx(6,6,6,10,0,200,"",QF_RELATIVE|QF_SCALEDOWN,falloff:100,rollIntensity:.7);
 		SWWMUtility.DoKnockback(target,vel.unit(),85000);
@@ -320,7 +320,17 @@ Class PusherProjectile : Actor
 		}
 		else toucher.A_StartSound("misc/w_pkup",CHAN_ITEM,CHANF_MAYBE_LOCAL);
 		toucher.A_SelectWeapon("PusherWeapon");
+		Spawn("SWWMRedPickupFlash",pos);
 		Destroy();
+	}
+	override bool Used( Actor user )
+	{
+		// test vertical range
+		Vector3 diff = level.Vec3Diff(user.Vec3Offset(0,0,user.Height/2),Vec3Offset(0,0,Height/2));
+		double rang = user.player?PlayerPawn(user.player.mo).UseRange:(user.Height/2);
+		if ( abs(diff.z) > rang ) return false;
+		Touch(user);
+		return bDestroyed;
 	}
 	States
 	{
@@ -390,7 +400,7 @@ Class PusherWeapon : SWWMWeapon
 		if ( d.HitType != TRACE_HitNone )
 		{
 			A_QuakeEx(2,2,2,7,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:.8);
-			A_AlertMonsters(1200);
+			A_AlertMonsters(swwm_uncapalert?0:1200);
 			int dmg = int(5+invoker.chargelevel*3);
 			if ( d.HitType == TRACE_HitActor )
 			{
@@ -399,7 +409,7 @@ Class PusherWeapon : SWWMWeapon
 				SWWMUtility.DoKnockback(d.HitActor,d.HitDir,8500);
 				d.HitActor.A_QuakeEx(3,3,3,10,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.1);
 				dmg = d.HitActor.DamageMobj(invoker,self,dmg,'Tenderize',DMG_THRUSTLESS);
-				if ( d.HitActor.bNOBLOOD || d.HitActor.bINVULNERABLE )
+				if ( d.HitActor.bNOBLOOD || d.HitActor.bDORMANT || d.HitActor.bINVULNERABLE )
 				{
 					let p = Spawn("PusherImpact",d.HitLocation-d.HitDir*4);
 					p.angle = atan2(-d.HitDir.y,-d.HitDir.x);
@@ -450,7 +460,7 @@ Class PusherWeapon : SWWMWeapon
 			s.scale *= 1.4;
 			s.alpha *= .03;
 		}
-		if ( swwm_extraalert || !(invoker.hitcnt%20) ) A_AlertMonsters(500);
+		if ( swwm_extraalert || !(invoker.hitcnt%20) ) A_AlertMonsters(swwm_uncapalert?0:500);
 		invoker.hitcnt++;
 	}
 
@@ -477,7 +487,7 @@ Class PusherWeapon : SWWMWeapon
 		if ( d.HitType != TRACE_HitNone )
 		{
 			A_QuakeEx(8,8,8,12,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:.8);
-			A_AlertMonsters(1600);
+			A_AlertMonsters(swwm_uncapalert?0:1600);
 			int dmg = int(300*invoker.chargelevel);
 			if ( d.HitType == TRACE_HitActor )
 			{
@@ -486,7 +496,7 @@ Class PusherWeapon : SWWMWeapon
 				SWWMUtility.DoKnockback(d.HitActor,d.HitDir,85000);
 				d.HitActor.A_QuakeEx(9,9,9,15,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.1);
 				dmg = d.HitActor.DamageMobj(invoker,self,dmg,'Tenderize',DMG_THRUSTLESS);
-				if ( d.HitActor.bNOBLOOD || d.HitActor.bINVULNERABLE )
+				if ( d.HitActor.bNOBLOOD || d.HitActor.bDORMANT || d.HitActor.bINVULNERABLE )
 				{
 					let p = Spawn("BigPusherImpact",d.HitLocation-d.HitDir*4);
 					p.angle = atan2(-d.HitDir.y,-d.HitDir.x);
@@ -550,7 +560,7 @@ Class PusherWeapon : SWWMWeapon
 				s.alpha *= .1;
 			}
 		}
-		A_AlertMonsters(1200);
+		A_AlertMonsters(swwm_uncapalert?0:1200);
 		invoker.chargelevel = 0.;
 	}
 

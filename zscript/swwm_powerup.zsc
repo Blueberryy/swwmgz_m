@@ -91,7 +91,7 @@ Class GrilledCheeseSandwich : Inventory
 		}
 		if ( (Owner.Health-damage <= 0) && (Amount > 0) )
 		{
-			if ( (damageType == 'Falling') || (damageType == 'InstantDeath') )
+			if ( damageType == 'InstantDeath' )
 				SafeTeleport();	// get out of pits
 			newdamage = 0;
 			if ( (Owner.player == players[consoleplayer]) || bBigPowerup ) Owner.A_StartSound(UseSound,CHAN_ITEMEXTRA);
@@ -187,7 +187,7 @@ Class GrilledCheeseSandwich : Inventory
 		Inventory.PickupMessage "$T_SANDWICH";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -348,7 +348,7 @@ Class GhostArtifact : Inventory
 		Inventory.PickupMessage "$T_GHOSTARTI";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -516,7 +516,7 @@ Class GravitySuppressor : Inventory
 		Inventory.PickupMessage "$T_GRAVITYS";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -745,7 +745,7 @@ Class FuckingInvinciball : Inventory
 		Inventory.PickupMessage "$T_INVINCIBALL";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -858,7 +858,7 @@ Class RagekitPower : Powerup
 		}
 		if ( Owner.player == players[consoleplayer] )
 			lastrage = SWWMHandler.AddOneliner("ragekit",2,20)+40;
-		Owner.A_AlertMonsters(5000);
+		Owner.A_AlertMonsters(swwm_uncapalert?0:5000);
 		SWWMHandler.DoFlash(Owner,Color(64,255,0,0),30);
 		Owner.A_QuakeEx(8,8,8,20,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
 		lasteffect = int.min;
@@ -880,7 +880,7 @@ Class RagekitPower : Powerup
 			SWWMHandler.DoFlash(Owner,Color(16,255,0,0),5);
 			if ( Owner.GiveBody(1,100) )
 				SWWMScoreObj.Spawn(1,Owner.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+Owner.Height/2),Font.CR_BLUE);
-			Owner.A_AlertMonsters(2000);
+			Owner.A_AlertMonsters(swwm_uncapalert?0:2000);
 			if ( (Owner.player == players[consoleplayer]) && (gametic > lastrage) && (CVar.GetCVar('swwm_mutevoice',players[consoleplayer]).GetInt() < 2) )
 				lastrage = SWWMHandler.AddOneliner("ragekit",2,5)+40;
 			Owner.A_QuakeEx(2,2,2,Random[Rage](1,2),0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:.5);
@@ -934,7 +934,7 @@ Class RagekitPower : Powerup
 		if ( level.maptime <= lasteffect+5 ) return;
 		if ( Owner.GiveBody(5,100) )
 			SWWMScoreObj.Spawn(5,Owner.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+Owner.Height/2),Font.CR_BLUE);
-		Owner.A_AlertMonsters(5000);
+		Owner.A_AlertMonsters(swwm_uncapalert?0:5000);
 		SWWMHandler.DoFlash(Owner,Color(64,255,0,0),10);
 		Owner.A_QuakeEx(8,8,8,Random[Rage](3,8),0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:1.);
 		if ( (Owner.player == players[consoleplayer]) && (gametic > lastrage) )
@@ -1011,7 +1011,7 @@ Class Ragekit : Inventory
 		Inventory.PickupMessage "$T_RAGEKIT";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -1053,7 +1053,7 @@ Class Omnisight : Inventory
 		Inventory.MaxAmount 1;
 		Inventory.InterHubAmount 0;
 		Inventory.RestrictedTo "Demolitionist";
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+COUNTITEM;
@@ -1256,7 +1256,7 @@ Class LampMoth : Actor
 			Vector3 awaydir = level.Vec3Diff(target.Vec3Offset(0,0,target.height),pos).unit();
 			vel += awaydir*8.;
 			int dmg = target.DamageMobj(self,self,GetMissileDamage(0,0),'Melee',Random[Moth](0,8)?DMG_NO_PAIN:0);
-			if ( !target.bNOBLOOD )
+			if ( !target.bNOBLOOD && !target.bDORMANT && !target.bINVULNERABLE )
 			{
 				target.TraceBleed(dmg,self);
 				target.SpawnBlood(pos,atan2(awaydir.y,awaydir.x)+180,dmg);
@@ -1714,7 +1714,7 @@ Class SWWMLamp : Inventory
 		Inventory.Amount 1;
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;
@@ -1876,7 +1876,7 @@ Class EBarrier : Inventory
 		Inventory.PickupMessage "$T_BARRIER";
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMPurplePickupFlash";
 		+INVENTORY.ALWAYSPICKUP;
 		+INVENTORY.AUTOACTIVATE;
 		+INVENTORY.INVBAR;

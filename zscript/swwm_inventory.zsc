@@ -43,6 +43,10 @@ Mixin Class SWWMUseToPickup
 	{
 		Vector3 itempos = Vec3Offset(0,0,Height/2),
 			userpos = user.Vec2OffsetZ(0,0,user.player.viewz);
+		// test vertical range
+		Vector3 diff = level.Vec3Diff(user.Vec3Offset(0,0,user.Height/2),Vec3Offset(0,0,Height/2));
+		double rang = user.player?PlayerPawn(user.player.mo).UseRange:(user.Height/2);
+		if ( abs(diff.z) > rang ) return false;
 		Touch(user);
 		// we got picked up
 		if ( bDestroyed || Owner || !bSPECIAL )
@@ -243,7 +247,7 @@ Class SWWMSpareArmor : Inventory abstract
 		+INVENTORY.AUTOACTIVATE;
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMGreenPickupFlash";
 		+FLOATBOB;
 		FloatBobStrength 0.25;
 	}
@@ -386,7 +390,7 @@ Class SWWMHealth : Inventory abstract
 		Inventory.MaxAmount 5;
 		Inventory.InterHubAmount 5;
 		Inventory.UseSound "misc/health_pkup";
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMBluePickupFlash";
 		+FLOATBOB;
 		FloatBobStrength 0.25;
 	}
@@ -981,7 +985,7 @@ Class SWWMWeapon : Weapon abstract
 	FlagDef HideInMenu : SWeaponFlags, 1;	// don't show in inventory menu (usually for sister weapons)
 
 	transient CVar phair;		// use custom precise crosshair
-	transient ui CVar ch_img, ch_siz, ch_grow, ch_col, ch_hp, ch_on;
+	transient ui CVar ch_img, ch_siz, ch_grow, ch_col, ch_hp, ch_on, ch_force;
 	ui SWWMCrosshairTracer ctr;
 	ui Vector3 cpos;
 	ui Color ccol;
@@ -1090,10 +1094,12 @@ Class SWWMWeapon : Weapon abstract
 	virtual ui void RenderUnderlay( RenderEvent e )
 	{
 		// draw custom crosshair
-		if ( automapactive ) return;
+		if ( automapactive || (players[consoleplayer].Camera is 'SecurityCamera') ) return;
 		if ( !phair || !phair.GetBool() ) return;
 		if ( !ch_on ) ch_on = CVar.GetCVar('crosshairon',players[consoleplayer]);
 		if ( !ch_on.GetBool() ) return;
+		if ( !ch_force ) ch_force = CVar.GetCVar('crosshairforce',players[consoleplayer]);
+		if ( ch_force.GetBool() ) return;
 		let sb = SWWMStatusBar(StatusBar);
 		if ( !sb ) return;
 		sb.viewport.FromHud();
@@ -1142,7 +1148,7 @@ Class SWWMWeapon : Weapon abstract
 		if ( ch_hp.GetInt() >= 2 )
 		{
 			int hp = Clamp(Owner.Health,0,200);
-			double sat = (hp<150)?1.:(1.-(health-150)/100.);
+			double sat = (hp<150)?1.:(1.-(hp-150)/100.);
 			Vector3 rgb = SWWMUtility.HSVtoRGB((hp/300.,sat,1.));
 			col = Color(int(rgb.x*255),int(rgb.y*255),int(rgb.z*255));
 		}
@@ -1163,7 +1169,8 @@ Class SWWMWeapon : Weapon abstract
 			else if ( hp < .85 ) col = Color(int((.6-hp)*255/.3),255,0);
 			else col = Color(0,255,0);
 		}
-		return ctr.Results.HitPos, col;
+		if ( ctr.Results.HitType == TRACE_HitNone ) return level.Vec3Offset(origin,x*10000.), col;
+		else return ctr.Results.HitPos, col;
 	}
 	// where the trace is coming from relative to eyes
 	virtual clearscope Vector3 GetTraceOffset() const
@@ -1206,7 +1213,11 @@ Class SWWMWeapon : Weapon abstract
 		}
 		if ( !player.ReadyWeapon ) return;
 		let psp = player.GetPSprite(PSP_WEAPON);
+		if ( !psp ) return;
+		ResetPSprite(psp);
 		psp.y = WEAPONTOP;
+		// do not jump to ready state here, the weapon should do that
+		// directly once it finishes playing its select animation
 	}
 	action void A_FullLower()
 	{
@@ -1217,7 +1228,9 @@ Class SWWMWeapon : Weapon abstract
 			return;
 		}
 		let psp = player.GetPSprite(PSP_WEAPON);
+		if ( !psp ) return;
 		psp.y = WEAPONBOTTOM;
+		ResetPSprite(psp);
 		if ( player.playerstate == PST_DEAD )
 		{
 			// Player is dead, so don't bring up a pending weapon
@@ -1274,7 +1287,7 @@ Class SWWMWeapon : Weapon abstract
 			invoker.bNOEXTREMEDEATH = invoker.default.bEXTREMEDEATH;
 			int quakin = raging?8:2;
 			if ( d.HitActor.player ) d.HitActor.A_QuakeEx(quakin,quakin,quakin,6,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:0.125*quakin);
-			if ( !d.HitActor.bNOBLOOD && (raging || !d.HitActor.bINVULNERABLE) )
+			if ( !d.HitActor.bNOBLOOD && !d.HitActor.bDORMANT && (raging || !d.HitActor.bINVULNERABLE) )
 			{
 				d.HitActor.TraceBleed(dmg,invoker);
 				d.HitActor.SpawnBlood(d.HitLocation,atan2(d.HitDir.y,d.HitDir.x)+180,dmg);
@@ -1294,7 +1307,7 @@ Class SWWMWeapon : Weapon abstract
 			A_QuakeEx(quakin/2,quakin/2,quakin/2,3,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:0.06*quakin);
 			if ( raging ) A_StartSound(bloodless?"pusher/althit":"pusher/altmeat",CHAN_WEAPON,CHANF_OVERLAP);
 			else A_StartSound((hitsound!="")?hitsound:bloodless?"demolitionist/punch":"demolitionist/punchf",CHAN_WEAPON,CHANF_OVERLAP);
-			A_AlertMonsters(300);
+			A_AlertMonsters(swwm_uncapalert?0:300);
 			return true;
 		}
 		return false;
@@ -1370,7 +1383,7 @@ Class SWWMWeapon : Weapon abstract
 		int quakin = raging?4:1;
 		A_QuakeEx(quakin,quakin,quakin,3,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:0.12*quakin);
 		A_StartSound(raging?"pusher/althit":(hitsound!="")?hitsound:"demolitionist/punch",CHAN_WEAPON,CHANF_OVERLAP);
-		A_AlertMonsters(100);
+		A_AlertMonsters(swwm_uncapalert?0:100);
 		if ( raging ) raging.DoHitFX();
 		if ( swwm_omnibust ) BusterWall.BustLinetrace(d,raging?(dmg*8):dmg,self,d.HitDir,d.HitLocation.z);
 	}
@@ -1454,7 +1467,7 @@ Class SWWMWeapon : Weapon abstract
 		Weapon.YAdjust 0;
 		Weapon.SlotPriority 1.;
 		Inventory.RestrictedTo "Demolitionist";
-		Inventory.PickupFlash "SWWMPickupFlash";
+		Inventory.PickupFlash "SWWMRedPickupFlash";
 		+INVENTORY.IGNORESKILL;
 		+WEAPON.NOALERT;
 		+WEAPON.NODEATHINPUT;

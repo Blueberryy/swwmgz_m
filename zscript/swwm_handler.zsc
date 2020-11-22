@@ -1,55 +1,28 @@
 // event handlers and whatnot
 
-// preload fonts and stuff
-Class SWWMPreloader : StaticEventHandler
-{
-	transient ui Font TewiFont, MPlusFont;
-	transient ui CVar lang;
-
-	override void OnRegister()
-	{
-		Font.GetFont('k6x8');
-		Font.GetFont('k6x8Shaded');
-		Font.GetFont('k6x8ShadedInverse');
-		Font.GetFont('Miniwi');
-		Font.GetFont('MiniwiShaded');
-		Font.GetFont('MiniwiShadedInverse');
-		Font.GetFont('MPlus');
-		Font.GetFont('MPlusShaded');
-		Font.GetFont('MPlusShadedInverse');
-		Font.GetFont('Tewi');
-		Font.GetFont('TewiShaded');
-		Font.GetFont('TewiShadedInverse');
-		Font.GetFont('SWWMBigFont');
-	}
-	// FIXME uncomment this once it's supported
-	/*override void UiTick()
-	{
-		// HACK! Graf, please let us change this in a cleaner way
-		if ( menuDelegate.GetClass() == 'DoomMenuDelegate' )
-		{
-			menuDelegate.Destroy();
-			menuDelegate = new("SWWMMenuDelegate");
-		}
-	}*/
-}
-
 // save version holder
 Class SWWMSaveVerData : Thinker
 {
 	String ver;
 }
 
-// Fancy crash effect / also handles save version stuff, for the sake of debugging
-Class SWWMCrashHandler : StaticEventHandler
+// Static handler responsible for some special stuff
+Class SWWMStaticHandler : StaticEventHandler
 {
+	// crash handler
 	ui bool wasinmap;
 	ui int timer;
+	// versioning
 	bool tainted;
 	String taintver;
+	// CBT easter egg
+	bool initme;
+	double cbtvol;
+	transient CVar cbtme;
 
 	override void NewGame()
 	{
+		// set save version every new session
 		let svd = new("SWWMSaveVerData");
 		svd.ChangeStatNum(Thinker.STAT_STATIC);
 		svd.ver = StringTable.Localize("$SWWM_MODVER");
@@ -57,6 +30,7 @@ Class SWWMCrashHandler : StaticEventHandler
 
 	override void WorldLoaded( WorldEvent e )
 	{
+		// save version checker
 		if ( !e.IsSaveGame ) return;
 		let ti = ThinkerIterator.Create("SWWMSaveVerData",Thinker.STAT_STATIC);
 		let svd = SWWMSaveVerData(ti.Next());
@@ -78,8 +52,42 @@ Class SWWMCrashHandler : StaticEventHandler
 		}
 	}
 
+	override void OnRegister()
+	{
+		// preload various fonts
+		Font.GetFont('k6x8');
+		Font.GetFont('k6x8Shaded');
+		Font.GetFont('k6x8ShadedInverse');
+		Font.GetFont('Miniwi');
+		Font.GetFont('MiniwiShaded');
+		Font.GetFont('MiniwiShadedInverse');
+		Font.GetFont('MPlus');
+		Font.GetFont('MPlusShaded');
+		Font.GetFont('MPlusShadedInverse');
+		Font.GetFont('Tewi');
+		Font.GetFont('TewiShaded');
+		Font.GetFont('TewiShadedInverse');
+		Font.GetFont('SWWMBigFont');
+	}
+
 	override void UiTick()
 	{
+		// HACK! Graf, please let us change this in a cleaner way
+		if ( menuDelegate.GetClass() == 'DoomMenuDelegate' )
+		{
+			menuDelegate.Destroy();
+			menuDelegate = new("SWWMMenuDelegate");
+		}
+		// Hey Graf how about you let us replace the class used for the
+		// "Read This!" menu in mapinfo/gameinfo or something so I
+		// don't have to do this hack here?
+		Menu cur = Menu.GetCurrentMenu();
+		if ( cur is 'ReadThisMenu' )
+		{
+			cur.Close();
+			Menu.SetMenu('SWWMHelpMenu');
+		}
+		// Fancy crash effect
 		if ( (gamestate == GS_LEVEL) || (gamestate == GS_TITLELEVEL) )
 		{
 			wasinmap = true;
@@ -115,6 +123,43 @@ Class SWWMCrashHandler : StaticEventHandler
 			timer++;
 		}
 	}
+
+	// from Wikipedia, the free encyclopedia
+	override void WorldTick()
+	{
+		if ( !cbtme ) cbtme = CVar.GetCVar('swwm_cbtmeme',players[consoleplayer]);
+		if ( !players[consoleplayer].mo ) return;
+		let cbt = players[consoleplayer].mo.FindInventory("Wallbuster");
+		if ( !cbt ) return;
+		if ( cbt == players[consoleplayer].ReadyWeapon )
+		{
+			if ( !initme && (cbtme.GetInt() > 0) )
+			{
+				initme = true;
+				cbtvol = .6;
+			}
+			cbtvol = min(.6,cbtvol+.1);
+			if ( (cbtme.GetInt() >= 1) && !cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
+				cbt.A_StartSound("wallbuster/olddays",CHAN_AMBEXTRA+1,CHANF_UI|CHANF_LOOP,cbtvol,0.);
+			else if ( (cbtme.GetInt() < 1) && cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
+				cbt.A_StopSound(CHAN_AMBEXTRA+1);
+			if ( (cbtme.GetInt() >= 2) && !cbt.IsActorPlayingSound(CHAN_AMBEXTRA+2) )
+			{
+				// restart the music
+				if ( cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
+				{
+					cbt.A_StopSound(CHAN_AMBEXTRA+1);
+					cbt.A_StartSound("wallbuster/olddays",CHAN_AMBEXTRA+1,CHANF_UI|CHANF_LOOP,cbtvol,0.);
+				}
+				cbt.A_StartSound("wallbuster/cbt",CHAN_AMBEXTRA+2,CHANF_UI,cbtvol,0.);
+			}
+			else if ( (cbtme.GetInt() < 2) && cbt.IsActorPlayingSound(CHAN_AMBEXTRA+2) )
+				cbt.A_StopSound(CHAN_AMBEXTRA+2);
+		}
+		else cbtvol = max(0.,cbtvol-.1);
+		cbt.A_SoundVolume(CHAN_AMBEXTRA+1,cbtvol*((cbtme.GetInt()>=2)?.8:1.));
+		cbt.A_SoundVolume(CHAN_AMBEXTRA+2,cbtvol);
+	}
 }
 
 // Handler responsible for item replacements and whatever else
@@ -139,8 +184,9 @@ Class SWWMHandler : EventHandler
 	int multilevel[MAXPLAYERS];
 	int lastitemcount[MAXPLAYERS];
 	bool allkills, allitems, allsecrets;
-	// for money cheat
-	transient ui int kcode, lcode;
+	// for custom cheats
+	transient ui int kcode;
+	transient ui String kstr;
 
 	// heal/armor flashes need to be handled here so they don't stack
 	transient int hflash[MAXPLAYERS], aflash[MAXPLAYERS];
@@ -149,11 +195,12 @@ Class SWWMHandler : EventHandler
 	transient Array<MenuTransaction> checklist;
 
 	transient CVar mutevoice, accdamage;
-	transient ui CVar useshaders;
+	transient ui CVar useshaders, altrage;
 	transient CVar lang;
 	transient String curlang;
 	transient CVar funtags;
 	transient bool curfuntags;
+	transient int slotstrictwarn;
 
 	// optimization
 	OnFire fires;
@@ -164,6 +211,110 @@ Class SWWMHandler : EventHandler
 	int casings_cnt, oldmaxcasings;
 	SWWMChip chips, chips_end;
 	int chips_cnt, oldmaxdebris;
+	// gore
+	mkBloodDrop blods, blods_end;
+	int blods_cnt, oldmaxblood;
+	mkFlyingGib meats, meats_end;
+	int meats_cnt, oldmaxgibs;
+
+	// prevents revived monsters from spawning in more golden shells
+	Array<Actor> alreadygold;
+
+	// attempt to optimize Ynykron singularity suction
+	Array<Actor> suckableactors;
+
+	// vanilla boss stuff
+	String bosstag;
+	Array<Actor> bossactors;
+
+	Actor bossbrainactor;
+	Actor bossviewactor;
+	TextureID facetex[5];
+
+	bool initialized;
+	ui bool ui_initialized;
+	ui TextureID bbar_f, bbar_r, bbar_d;
+	ui double bossalpha;
+	ui DynamicValueInterpolator ihealth, ihealthr;
+	ui int thealth, hmax;
+	ui int oldhealth[30];
+	ui int cummdamage, lastcummtic;	// please do not misread
+	transient ui CVar dodrawbossbar;
+
+	enum EVanillaMap
+	{
+		MAP_NONE,
+		MAP_DE1M8,
+		MAP_DE2M8,
+		MAP_DE3M8,
+		MAP_DE4M8,
+		MAP_HE1M8_HE4M8,
+		MAP_HE2M8_HE5M8,
+		MAP_HE3M8,
+		MAP_DMAP07,
+		MAP_DMAP30,
+		MAP_HMAP12,
+		MAP_HMAP23_HMAP27,
+		MAP_HMAP36,
+		MAP_HMAP37,
+		MAP_HMAP38,
+		MAP_HMAP40,
+	};
+
+	private int WhichVanillaBossMap()
+	{
+		String mapsum = level.GetChecksum();
+		if ( (mapsum ~== "94500F4B006B316FE03AC46865AEABF8")
+			|| (mapsum ~== "97079958C7E89C1908890730B8B9FEB7")
+			|| (mapsum ~== "058FB092EA1B70DA1E3CBF501C4A91A1") )
+			return MAP_DE1M8;
+		if ( mapsum ~== "EFFE91DF41AD41F6973C06F0AD67DDB9" )
+			return MAP_DE2M8;
+		if ( mapsum ~== "EF128313112110ED6C1549AF96AF26C9" )
+			return MAP_DE3M8;
+		if ( mapsum ~== "2DC939E508AB8EB68AF79D5B60568711" )
+			return MAP_DE4M8;
+		if ( (mapsum ~== "27639D04F8090D57A47D354992435893")
+			|| (mapsum ~== "30D1480A6D4F3A3153739D4CCF659C4E") )
+			return MAP_HE1M8_HE4M8;
+		if ( (mapsum ~== "5158C22A0F30CE5E558FD2A05D67685E")
+			|| (mapsum ~== "85AC7D20D18F9BC49B9696CC2E67F029") )
+			return MAP_HE2M8_HE5M8;
+		if ( mapsum ~== "4719C2C71EF28F52310B889DD5A9778B" )
+			return MAP_HE3M8;
+		if ( mapsum ~== "291F24417FB3DD411339AE82EF9B3597" )
+			return MAP_DMAP07;
+		if ( mapsum ~== "5EECD88F4491F516D590CE4BBF45F532" )
+			return MAP_DMAP30;
+		if ( (mapsum ~== "89C4CD26EF05E2577B10CAFE56226662")
+			|| (mapsum ~== "441BF111747671066A10A146C03EEFC4")
+			|| (mapsum ~== "55E321849F3699655D7E062C90682F63") )
+			return MAP_HMAP12;
+		if ( (mapsum ~== "E3B06F44DBF6F7E7754D7B1DAEF707E4")
+			|| (mapsum ~== "FC832437D7A2B7094A9B56C3909773D9")
+			|| (mapsum ~== "91AD797F95CC4C6D6AE33B21F664C60B")
+			|| (mapsum ~== "188B1B4244BD8DA501D8532696EC8654")
+			|| (mapsum ~== "5B29D0889DF09A8250D62FA09EB2B452")
+			|| (mapsum ~== "D3C5FA777BA52264546E6569F167AF0D") )
+			return MAP_HMAP23_HMAP27;
+		if ( (mapsum ~== "4444C95C2029DA6EECAC92DAA31CE665")
+			|| (mapsum ~== "33752742BCA8E539A6EE3E5D0FDA8744")
+			|| (mapsum ~== "3FFAF2F624C1B4BB6F581DCF7B99CBA7") )
+			return MAP_HMAP36;
+		if ( (mapsum ~== "78979A583B1E30D94C9DAE2BCFA9A18D")
+			|| (mapsum ~== "FDC90F44C65A71E0901C1B9FFFCF3D02")
+			|| (mapsum ~== "088ECE0E0F3E68448FA1D901001A0084") )
+			return MAP_HMAP37;
+		if ( (mapsum ~== "3BF62E4F9FB3CF9AF267421CE2D5F348")
+			|| (mapsum ~== "4799E1FDB5A3C0E3AD650B5AC215A737")
+			|| (mapsum ~== "5C63A02B0B04D9AE95CA51687DC3406F") )
+			return MAP_HMAP38;
+		if ( (mapsum ~== "EFAFE59092DE5E613562ACF52B86C37F")
+			|| (mapsum ~== "1C5DE5A921DEE405E98E7E09D9829387")
+			|| (mapsum ~== "2A6C4235B942467D25FD50D5B313E67A") )
+			return MAP_HMAP40;
+		return MAP_NONE;
+	}
 
 	static void QueueCasing( SWWMCasing c )
 	{
@@ -233,6 +384,74 @@ Class SWWMHandler : EventHandler
 		c.prevchip = null;
 		c.nextchip = null;
 	}
+	static void QueueBlod( mkBloodDrop b )
+	{
+		let hnd = SWWMHandler(EventHandler.Find("SWWMHandler"));
+		if ( !hnd ) return;
+		hnd.blods_cnt++;
+		if ( !hnd.blods )
+		{
+			// this is the initial one
+			hnd.blods = b;
+			hnd.blods_end = b;
+		}
+		else
+		{
+			hnd.blods_end.nextblod = b;
+			b.prevblod = hnd.blods_end;
+			hnd.blods_end = b;
+		}
+		while ( hnd.blods && (swwm_maxblood >= 0) && (hnd.blods_cnt > swwm_maxblood) )
+			DeQueueBlod(hnd.blods);
+	}
+	static void DeQueueBlod( mkBloodDrop b )
+	{
+		let hnd = SWWMHandler(EventHandler.Find("SWWMHandler"));
+		if ( !hnd || !hnd.blods ) return;
+		if ( (hnd.blods != b) && !b.prevblod && !b.nextblod ) return;
+		hnd.blods_cnt--;
+		if ( !b.prevblod ) hnd.blods = b.nextblod;
+		else b.prevblod.nextblod = b.nextblod;
+		if ( b == hnd.blods_end ) hnd.blods_end = b.prevblod;
+		if ( b.nextblod ) b.nextblod.prevblod = b.prevblod;
+		b.killme = true;
+		b.prevblod = null;
+		b.nextblod = null;
+	}
+	static void QueueMeat( mkFlyingGib m )
+	{
+		let hnd = SWWMHandler(EventHandler.Find("SWWMHandler"));
+		if ( !hnd ) return;
+		hnd.meats_cnt++;
+		if ( !hnd.meats )
+		{
+			// this is the initial one
+			hnd.meats = m;
+			hnd.meats_end = m;
+		}
+		else
+		{
+			hnd.meats_end.nextmeat = m;
+			m.prevmeat = hnd.meats_end;
+			hnd.meats_end = m;
+		}
+		while ( hnd.meats && (swwm_maxgibs >= 0) && (hnd.meats_cnt > swwm_maxgibs) )
+			DeQueueMeat(hnd.meats);
+	}
+	static void DeQueueMeat( mkFlyingGib m )
+	{
+		let hnd = SWWMHandler(EventHandler.Find("SWWMHandler"));
+		if ( !hnd || !hnd.meats ) return;
+		if ( (hnd.meats != m) && !m.prevmeat && !m.nextmeat ) return;
+		hnd.meats_cnt--;
+		if ( !m.prevmeat ) hnd.meats = m.nextmeat;
+		else m.prevmeat.nextmeat = m.nextmeat;
+		if ( m == hnd.meats_end ) hnd.meats_end = m.prevmeat;
+		if ( m.nextmeat ) m.nextmeat.prevmeat = m.prevmeat;
+		m.killme = true;
+		m.prevmeat = null;
+		m.nextmeat = null;
+	}
 
 	static void HealthFlash( int p )
 	{
@@ -264,17 +483,7 @@ Class SWWMHandler : EventHandler
 		int countem;
 		if ( testme == locme ) countem = 0;
 		else countem = locme.ToInt();
-		if ( countem == 0 )
-		{
-			if ( voicetype ~== "default" ) return 0;
-			// retry with the default voicetype
-			voicetype = "default";
-			testme = String.Format("SWWM_SUBS_DEFAULT_N%s",type.MakeUpper());
-			locme = StringTable.Localize(testme,false);
-			if ( testme == locme ) countem = 0;
-			else countem = locme.ToInt();
-			if ( countem == 0 ) return 0;
-		}
+		if ( countem == 0 ) return 0;	// voicepack doesn't have this
 		// check last line so we don't repeat
 		int last = 0, ent;
 		for ( int i=0; i<hnd.lastlines.Size(); i++ )
@@ -577,6 +786,15 @@ Class SWWMHandler : EventHandler
 			}
 		}
 		ClearAllShaders(players[consoleplayer]);
+		// recheck queues in case limits changed
+		while ( casings && (casings_cnt > swwm_maxcasings) )
+			DeQueueCasing(casings);
+		while ( chips && (chips_cnt > swwm_maxdebris) )
+			DeQueueChip(chips);
+		while ( blods && (blods_cnt > swwm_maxblood) )
+			DeQueueBlod(blods);
+		while ( meats && (meats_cnt > swwm_maxgibs) )
+			DeQueueMeat(meats);
 	}
 
 	override void PlayerDied( PlayerEvent e )
@@ -587,8 +805,37 @@ Class SWWMHandler : EventHandler
 
 	override void PlayerEntered( PlayerEvent e )
 	{
-		// create some static thinkers for this player if needed
 		PlayerInfo p = players[e.playernumber];
+		// override KEYCONF-forced player classes when run with other gameplay mods (wish this was easier)
+		if ( !(p.mo is 'Demolitionist') )
+		{
+			// make sure it's defined here, so special purpose classes (player chunks, scripted overrides) are respected
+			for ( int i=0; i<PlayerClasses.Size(); i++ )
+			{
+				if ( !(p.mo is PlayerClasses[i].Type) ) continue;
+				// perform a hotswap, code adapted from my .flow player morph in spooktober
+				let n = PlayerPawn(Actor.Spawn("Demolitionist",p.mo.pos));
+				n.player = p;
+				n.angle = p.mo.angle;
+				n.pitch = p.mo.pitch;
+				p.camera = n;
+				p.mo.Destroy();
+				p.mo = n;
+				n.GiveDefaultInventory();
+				let e = Weapon(n.FindInventory("ExplodiumGun"));
+				if ( e )
+				{
+					p.ReadyWeapon = null;
+					p.PendingWeapon = e;
+					n.BringUpWeapon();
+				}
+				// warn if strict KEYCONF is enabled
+				if ( setslotstrict && (p == players[consoleplayer]) )
+					slotstrictwarn = gametic+300;
+				break;
+			}
+		}
+		// create some static thinkers for this player if needed
 		SWWMTradeHistory th = SWWMTradeHistory.Find(p);
 		if ( !th )
 		{
@@ -609,6 +856,34 @@ Class SWWMHandler : EventHandler
 			l = new("SWWMLoreLibrary");
 			l.ChangeStatNum(Thinker.STAT_STATIC);
 			l.myplayer = p;
+		}
+		// horrendous piece of shit bandaid fix because gzdoom gets on my fucking nerves with its inconsistency bullshit
+		let ti = ThinkerIterator.Create("SWWMLoreLibrary",Thinker.STAT_STATIC);
+		SWWMLoreLibrary l2;
+		bool bmesg = false;
+		while ( l2 = SWWMLoreLibrary(ti.Next()) )
+		{
+			if ( (l2 == l) || (l2.myplayer != p) ) continue;
+			if ( !bmesg )
+			{
+				Console.Printf("If these messages appear, something broke and should be reported.");
+				bmesg = true;
+			}
+			// merge excess libraries (if it ever happens)
+			Console.Printf("Merging existing lore library with %d entries.",l2.ent.Size());
+			for ( int i=0; i<l2.ent.Size(); i++ )
+			{
+				bool dontadd = false;
+				for ( int j=0; j<l.ent.Size(); j++ )
+				{
+					if ( l.ent[j].tag != l2.ent[i].tag ) continue;
+					l.ent[j].read |= l2.ent[i].read;
+					dontadd = true;
+				}
+				if ( dontadd ) continue;
+				l.ent.Push(l2.ent[i]);
+			}
+			l2.Destroy();
 		}
 		// pre-add some entries to start with
 		l.DirectAdd("Demolitionist");
@@ -650,27 +925,6 @@ Class SWWMHandler : EventHandler
 		// reset combat tracker
 		if ( !swwm_notrack )
 			SWWMCombatTracker.Spawn(players[e.playernumber].mo);
-		if ( p.mo is 'Demolitionist' )
-		{
-			// reinitialize
-			Demolitionist(p.mo).dashfuel = Demolitionist(p.mo).default.dashfuel;
-			Demolitionist(p.mo).last_boost = 0;
-			Demolitionist(p.mo).last_kick = 0;
-			// cancel dash/boost
-			p.mo.A_StopSound(CHAN_JETPACK);
-			Demolitionist(p.mo).fuelcooldown = 0.;
-			Demolitionist(p.mo).dashcooldown = 0.;
-			Demolitionist(p.mo).dashboost = 0.;
-			Demolitionist(p.mo).dashsnd = false;
-			// prevent sudden stomping if we were previously falling
-			Demolitionist(p.mo).lastvelz = p.mo.vel.z;
-			// early cancel gestures
-			if ( p.ReadyWeapon is 'SWWMGesture' )
-			{
-				p.PendingWeapon = SWWMGesture(p.ReadyWeapon).formerweapon;
-				p.SetPSprite(PSP_WEAPON,p.ReadyWeapon.ResolveState("Deselect"));
-			}
-		}
 		// reset score (optional) if inventory should be cleared
 		if ( swwm_resetscore && level.removeitems && !e.IsReturn )
 			c.credits = c.hcredits = 0;
@@ -686,8 +940,14 @@ Class SWWMHandler : EventHandler
 		// reattach combat tracker
 		if ( !swwm_notrack && (e.Thing.bSHOOTABLE || e.Thing.bISMONSTER) && !(e.Thing is 'LampMoth') && !(e.Thing is 'CompanionLamp') )
 			SWWMCombatTracker.Spawn(e.Thing);
-		if ( swwm_doomfall && e.Thing.bISMONSTER && !level.monsterfallingdamage )
-			ForcedFallerDamager.TrackBody(e.Thing);
+		// reattach headpats
+		if ( SWWMUtility.IdentifyingDog(e.Thing) || SWWMUtility.IdentifyingCaco(e.Thing)
+			|| SWWMUtility.IdentifyingDrug(e.Thing) || SWWMUtility.IdentifyingDoubleBoi(e.Thing) )
+		{
+			// you can pet the dog, and you can also pet the caco (and friends)
+			let hp = Actor.Spawn("HeadpatTracker",e.Thing.pos);
+			hp.target = e.Thing;
+		}
 		if ( !(e.Thing is 'PlayerPawn') ) return;
 		// reset some vars
 		if ( e.Thing.playernumber() != -1 )
@@ -696,13 +956,6 @@ Class SWWMHandler : EventHandler
 			spreecount[e.Thing.playernumber()] = 0;
 			tookdamage[e.Thing.playernumber()] = false;
 			lastkill[e.Thing.playernumber()] = int.min;
-			// initialize some player vars
-			if ( e.Thing is 'Demolitionist' )
-			{
-				Demolitionist(e.Thing).dashfuel = 240.;
-				Demolitionist(e.Thing).last_boost = 0;
-				Demolitionist(e.Thing).last_kick = 0;
-			}
 		}
 		// reset uptime since player had just died
 		SWWMStats s = SWWMStats.Find(e.Thing.player);
@@ -742,8 +995,20 @@ Class SWWMHandler : EventHandler
 			while ( chips && (swwm_maxdebris >= 0) && (chips_cnt > swwm_maxdebris) )
 				DeQueueChip(chips);
 		}
+		if ( swwm_maxblood != oldmaxblood )
+		{
+			while ( blods && (swwm_maxblood >= 0) && (blods_cnt > swwm_maxblood) )
+				DeQueueBlod(blods);
+		}
+		if ( swwm_maxgibs != oldmaxgibs )
+		{
+			while ( meats && (swwm_maxgibs >= 0) && (meats_cnt > swwm_maxgibs) )
+				DeQueueMeat(meats);
+		}
 		oldmaxcasings = swwm_maxcasings;
 		oldmaxdebris = swwm_maxdebris;
+		oldmaxblood = swwm_maxblood;
+		oldmaxgibs = swwm_maxgibs;
 		if ( !mutevoice ) mutevoice = CVar.GetCVar('swwm_mutevoice',players[consoleplayer]);
 		if ( onelinertic && (onelinertic < gametic) )
 		{
@@ -840,6 +1105,16 @@ Class SWWMHandler : EventHandler
 		}
 		if ( enteredcombat && (!highesttic || (gametic > highesttic+700)) )
 			lastcombat = AddOneliner("fightstart",1,10);
+		if ( initialized ) return;
+		// wait until bosses are active
+		for ( int i=0; i<bossactors.Size(); i++ )
+		{
+			if ( !bossactors[i] ) continue;
+			if ( (!bossactors[i].target || !bossactors[i].CheckSight(bossactors[i].target,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY))
+				&& (!bossviewactor || (bossviewactor && !bossviewactor.target)) ) continue;
+			initialized = true;
+			break;
+		}
 	}
 
 	private bool HexenMap40()
@@ -852,12 +1127,26 @@ Class SWWMHandler : EventHandler
 
 	override void WorldThingDied( WorldEvent e )
 	{
-		if ( ((e.Thing.default.bBOSS) || (e.Thing.default.Health >= 1000)) && !Random[GoldDrop](0,2) )
+		if ( e.Thing.default.bISMONSTER && ((e.Thing.default.bBOSS) || (e.Thing.GetSpawnHealth() >= 1000)) && (alreadygold.Find(e.Thing) == alreadygold.Size()) )
 		{
-			let g = Actor.Spawn("GoldShell",e.Thing.Vec3Offset(0,0,e.Thing.Height/2));
-			double ang = FRandom[SpareShells](0,360);
-			g.vel.xy = (cos(ang),sin(ang))*FRandom[SpareShells](.4,.8);
-			g.vel.z = FRandom[SpareShells](2.,4.);
+			// make sure we can't farm drops from revivable enemies
+			// (or cause some things to spam-spawn gold shells)
+			// (*cough* Touhou Doom *cough*)
+			alreadygold.Push(e.Thing);
+			// weight drop chance based on total count of this monster type
+			// guarantees that maps that get a bit slaughtery won't become easy farms for drops
+			int dropweight = 0;
+			let ti = ThinkerIterator.Create(e.Thing.GetClass());
+			while ( ti.Next() ) dropweight++;
+			int minchance = max(1,6-(e.Thing.GetSpawnHealth()/1000));
+			dropweight = max(minchance,dropweight/4);
+			if ( !Random[GoldDrop](0,dropweight) )
+			{
+				let g = Actor.Spawn("GoldShell",e.Thing.Vec3Offset(0,0,e.Thing.Height/2));
+				double ang = FRandom[SpareShells](0,360);
+				g.vel.xy = (cos(ang),sin(ang))*FRandom[SpareShells](.4,.8);
+				g.vel.z = FRandom[SpareShells](2.,4.);
+			}
 		}
 		// Korax instakill
 		if ( (e.Thing is 'Korax') && !e.Thing.special2 && HexenMap40() )
@@ -885,212 +1174,289 @@ Class SWWMHandler : EventHandler
 			let pt = Actor.Spawn("PartyTime",e.Thing.pos);
 			pt.target = e.Thing;
 		}
+		// force insert gib animations on some vanilla Doom monsters
+		int gibhealth = e.Thing.GetGibHealth();
+		bool gotgibbed = (!e.Thing.bDONTGIB && ((e.Inflictor && e.Inflictor.bEXTREMEDEATH) || (e.DamageSource && e.DamageSource.bEXTREMEDEATH) || (e.DamageType == 'Extreme') || (e.Thing.Health < gibhealth)) && (!e.Inflictor || !e.Inflictor.bNOEXTREMEDEATH) && (!e.DamageSource || !e.DamageSource.bNOEXTREMEDEATH));
+		if ( !gotgibbed ) return;
+		if ( (e.Thing.GetClass() == "Demon") || (e.Thing.GetClass() == "Spectre") )
+			ExtraGibDeaths.GibThis(e.Thing,"DemonXDeath");
+		else if ( e.Thing.GetClass() == "HellKnight" )
+			ExtraGibDeaths.GibThis(e.Thing,"KnightXDeath");
+		else if ( e.Thing.GetClass() == "BaronOfHell" )
+			ExtraGibDeaths.GibThis(e.Thing,"BaronXDeath");
+		else if ( e.Thing.GetClass() == "Cacodemon" )
+			ExtraGibDeaths.GibThis(e.Thing,"CacoXDeath");
+		else if ( e.Thing.GetClass() == "Revenant" )
+			ExtraGibDeaths.GibThis(e.Thing,"BonerXDeath");
+		else if ( e.Thing.GetClass() == "Archvile" )
+			ExtraGibDeaths.GibThis(e.Thing,"VileXDeath");
+	}
+
+	// gibbing
+	private void DoGibThing( WorldEvent e )
+	{
+		// no gib if it was erased
+		if ( e.DamageType == 'Ynykron' ) return;
+		int gibhealth = e.Thing.GetGibHealth();
+		bool gotgibbed = (!e.Thing.bDONTGIB && ((e.Inflictor && e.Inflictor.bEXTREMEDEATH) || (e.DamageSource && e.DamageSource.bEXTREMEDEATH) || (e.DamageType == 'Extreme') || (e.Thing.Health < gibhealth)) && (!e.Inflictor || !e.Inflictor.bNOEXTREMEDEATH) && (!e.DamageSource || !e.DamageSource.bNOEXTREMEDEATH));
+		bool forcegibbed = false;
+		// force gib availability for some vanilla Doom monsters
+		if ( gotgibbed && ((e.Thing.GetClass() == "Demon") || (e.Thing.GetClass() == "Spectre") || (e.Thing.GetClass() == "HellKnight") || (e.Thing.GetClass() == "BaronOfHell") || (e.Thing.GetClass() == "Cacodemon") || (e.Thing.GetClass() == "Revenant") || (e.Thing.GetClass() == "Archvile")) )
+			forcegibbed = true;
+		if ( !e.Thing.FindState("XDeath",true) && !e.Thing.FindState("Death.Extreme",true) && !forcegibbed )
+			gotgibbed = false;
+		// only do special handling if they use our blood
+		if ( (e.Thing.GetBloodType(0) != "mkBlood") || e.Thing.bNOBLOOD )
+			return;
+		CorpseFallTracker.TrackBody(e.Thing);
+		bool b;
+		Actor a;
+		// special handling of some monsters
+		if ( e.Thing.GetClass() == "Cyberdemon" )
+		{
+			[b,a] = e.Thing.A_SpawnItemEx("mkGibber",flags:SXF_USEBLOODCOLOR);
+			if ( !b ) return;
+			mkGibber(a).gibbed = e.Thing;
+			mkGibber(a).delay = 40;
+			a.A_SetSize(e.Thing.default.radius,e.Thing.default.height);
+			return;
+		}
+		else if ( e.Thing.GetClass() == "SpiderMastermind" )
+		{
+			[b,a] = e.Thing.A_SpawnItemEx("mkGibber",flags:SXF_USEBLOODCOLOR);
+			if ( !b ) return;
+			mkGibber(a).gibbed = e.Thing;
+			mkGibber(a).delay = 60;
+			a.A_SetSize(e.Thing.default.radius,e.Thing.default.height);
+		}
+		else if ( gotgibbed )
+		{
+			[b,a] = e.Thing.A_SpawnItemEx("mkGibber",flags:SXF_USEBLOODCOLOR);
+			if ( !b ) return;
+			mkGibber(a).gibbed = e.Thing;
+			a.A_SetSize(e.Thing.default.radius,e.Thing.default.height);
+		}
+	}
+
+	// damage numbers, combat tracking, etc.
+	private void DoDamageHandling( WorldEvent e )
+	{
+		if ( !accdamage ) accdamage = CVar.GetCVar('swwm_accdamage',players[consoleplayer]);
+		bool spawnme = true;
+		if ( accdamage.GetBool() )
+		{
+			// find existing damage number
+			for ( SWWMScoreObj d=damnums; d; d=d.next )
+			{
+				if ( (d.starttic < level.maptime) || (d.acc != e.Thing) ) continue;
+				if ( d.score-e.Damage > d.score ) d.score = int.min;
+				else d.score -= e.Damage;
+				spawnme = false;
+				break;
+			}
+		}
+		if ( spawnme ) SWWMScoreObj.Spawn(-e.Damage,e.Thing.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+e.Thing.Height/2),Font.CR_RED,e.Thing);
+		// update combat tracker for it
+		if ( !(e.Thing is 'BossBrain') )
+		{
+			for ( SWWMCombatTracker t=trackers; t; t=t.next )
+			{
+				if ( t.mytarget != e.Thing ) continue;
+				t.updated = level.maptime+35;
+				break;
+			}
+		}
+		// fall dmg
+		SWWMWhoPushedMe.SetInstigator(e.Thing,e.DamageSource);
+		// stats
+		if ( e.Thing.player )
+		{
+			tookdamage[e.Thing.PlayerNumber()] = true;
+			let s = SWWMStats.Find(e.Thing.player);
+			s.AddDamageTaken(e.Damage);
+			if ( e.Damage > s.toptaken ) s.toptaken = e.Damage;
+		}
+		if ( e.DamageSource && e.DamageSource.player )
+		{
+			let s = SWWMStats.Find(e.DamageSource.player);
+			s.AddDamageDealt(e.Damage);
+			if ( e.Damage > s.topdealt ) s.topdealt = e.Damage;
+		}
+	}
+
+	// combat hit chatter
+	private void DoCombatHit( WorldEvent e )
+	{
+		if ( (e.DamageSource.bISMONSTER || e.DamageSource.player || (e.DamageSource is 'ScriptedMarine')) && (e.Thing == players[consoleplayer].mo) && (e.Thing.Health > 0) )
+		{
+			if ( !lastcombat || (gametic > lastcombat+40) )
+			{
+				if ( (e.Thing.IsFriend(e.DamageSource) || SWWMUtility.IsCivilian(e.DamageSource)) )
+					lastcombat = AddOneliner("friendhit",1,10);
+				else if ( (!lastcombat || (gametic > lastcombat+100)) && !Random[DemoLines](0,e.DamageSource.bBOSS?2:4) && !SWWMHDoomHandler.IsCuteGirl(e.DamageSource) ) // [HDoom] don't shout at the girls
+					lastcombat = AddOneliner("gethit",1,15);
+			}
+			highesttic = gametic;
+		}
+		// friendly fire lines only fire up if we didn't kill them right away (because then the teamkill line should take priority)
+		if ( (e.DamageSource == players[consoleplayer].mo) && (e.Thing.bISMONSTER || e.Thing.player || (e.Thing is 'ScriptedMarine')) && (e.Thing.Health > 0) )
+		{
+			// make sure it's not a moth, because otherwise they won't shut up about accidentally hurting them (it happens a lot)
+			if ( (e.Thing.IsFriend(e.DamageSource) || SWWMUtility.IsCivilian(e.Thing)) && !(e.Thing is 'LampMoth') )
+			{
+				if ( !lastcombat || (gametic > lastcombat+40) )
+					lastcombat = AddOneliner("hitfriend",1,10);
+				highesttic = gametic;
+			}
+		}
+	}
+
+	// kill scoring
+	private void DoKillScoring( WorldEvent e )
+	{
+		// fall damage tracking hack
+		let src = e.DamageSource;
+		if ( (e.DamageType == 'Falling') && !e.DamageSource )
+			src = SWWMWhoPushedMe.RecallInstigator(e.Thing);
+		if ( (!src || !src.player || (src == e.Thing)) ) return;
+		let s = SWWMStats.Find(src.player);
+		if ( s )
+		{
+			s.kills++;
+			s.AddWeaponKill(e.Inflictor,e.Thing,e.DamageType);
+		}
+		if ( src == players[consoleplayer].mo )
+		{
+			highesttic = gametic;
+			if ( !lastcombat || (gametic > lastcombat+40) )
+			{
+				if ( e.Thing.IsFriend(src) || SWWMUtility.IsCivilian(e.Thing) )
+					lastcombat = AddOneliner("friendkill",1,5);
+				else if ( (!lastcombat || (gametic > lastcombat+100)) && !Random[DemoLines](0,e.Thing.bBOSS?2:5) && !SWWMHDoomHandler.IsCuteGirl(e.Thing) )	// [HDoom] don't shout at the girls
+					lastcombat = AddOneliner("scorekill",1,15);
+			}
+		}
+		// no credits unless it's a counted kill or marine (that isn't friendly)
+		if ( e.Thing.IsFriend(src) || (!e.Thing.default.bCountKill && !(e.Thing is 'ScriptedMarine')) )
+			return;
+		int pnum = src.PlayerNumber();
+		if ( level.maptime < (lastkill[pnum]+5*Thinker.TICRATE) )
+			multilevel[pnum]++;
+		else multilevel[pnum] = 0;
+		if ( s && (multilevel[pnum]+1 > s.mkill) )
+			s.mkill = multilevel[pnum]+1;
+		lastkill[pnum] = level.maptime;
+		// scoring
+		int score = min(1000,int(ceil(e.Thing.GetSpawnHealth()*.05)*10));
+		SWWMScoreObj scr = null;
+		if ( src.player == players[consoleplayer] )
+			scr = SWWMScoreObj.Spawn(score,e.Thing.Vec3Offset(0,0,e.Thing.Height/2));
+		int ofs = 0;
+		if ( e.DamageType == 'Push' )
+		{
+			score += 500;
+			if ( scr )
+			{
+				scr.xscore[ofs] = 0;
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_SHAMEFUL");
+				scr.xcnt = ++ofs;
+			}
+		}
+		else if ( e.DamageType == 'Buttslam' )
+		{
+			score += 200;
+			if ( scr )
+			{
+				scr.xscore[ofs] = 0;
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_BUTTSLAM");
+				scr.xcnt = ++ofs;
+			}
+		}
+		else if ( e.DamageType == 'Love' )
+		{
+			score += 600;
+			if ( scr )
+			{
+				scr.xscore[ofs] = 0;
+				scr.xtcolor[ofs] = Font.FindFontColor('BlushPink');
+				scr.xstr[ofs] = StringTable.Localize((e.Thing is 'WolfensteinSS')?"$SWWM_LOVED_ALT":"$SWWM_LOVED");
+				scr.xcnt = ++ofs;
+			}
+		}
+		if ( (e.Damage >= e.Thing.GetSpawnHealth()*2) || (((e.Thing.Health <= e.Thing.GetGibHealth()) || (src.bEXTREMEDEATH) || (e.Inflictor && e.Inflictor.bEXTREMEDEATH) || (e.DamageType == 'Extreme')) && !src.bNOEXTREMEDEATH && (!e.Inflictor || !e.Inflictor.bNOEXTREMEDEATH)) )
+		{
+			score *= 2;
+			if ( scr )
+			{
+				scr.xscore[ofs] = 0;
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_OVERKILL");
+				scr.xcnt = ++ofs;
+			}
+		}
+		score = int(score*(1.+.5*min(multilevel[pnum],16)));
+		if ( (multilevel[pnum] > 0) && scr )
+		{
+			if ( scr )
+			{
+				scr.xscore[ofs] = (multilevel[pnum]>=16)?int.max:(multilevel[pnum]+1);
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_MULTIKILL");
+				scr.xcnt = ++ofs;
+			}
+		}
+		if ( !tookdamage[pnum] )
+		{
+			int spreebonus = 10*spreecount[pnum];
+			// taper off after 10x (some people go really far with these, holy fuck)
+			if ( spreecount[pnum] > 10 ) spreebonus = int(spreebonus*((spreecount[pnum]/10.)**.25));
+			score += 100+spreebonus;
+			if ( (spreecount[pnum] > 0) && scr )
+			{
+				scr.xscore[ofs] = spreecount[pnum]+1;
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_SPREEKILL");
+				scr.xcnt = ++ofs;
+			}
+		}
+		if ( e.Thing.bBOSS )
+		{
+			score += 2000;
+			if ( scr )
+			{
+				scr.xscore[ofs] = 0;
+				scr.xtcolor[ofs] = Font.CR_FIRE;
+				scr.xstr[ofs] = StringTable.Localize("$SWWM_BOSSKILL");
+				scr.xcnt = ++ofs;
+			}
+		}
+		SWWMCredits.Give(src.player,score);
+		if ( scr ) scr.score = score;	// update final score
+		if ( (level.killed_monsters+1 == level.total_monsters) && !allkills )
+		{
+			allkills = true;
+			SWWMCredits.Give(src.player,1000);
+			Console.Printf(StringTable.Localize("$SWWM_LASTMONSTER"),src.player.GetUserName(),1000);
+			SWWMScoreObj.Spawn(1000,src.Vec3Offset(0,0,src.Height/2));
+		}
+		spreecount[pnum]++;
+		if ( s && (spreecount[pnum] > s.skill) && !tookdamage[pnum] )
+			s.skill = spreecount[pnum];
 	}
 
 	override void WorldThingDamaged( WorldEvent e )
 	{
-		if ( e.Damage > 0 )
-		{
-			if ( !accdamage ) accdamage = CVar.GetCVar('swwm_accdamage',players[consoleplayer]);
-			bool spawnme = true;
-			if ( accdamage.GetBool() )
-			{
-				// find existing damage number
-				for ( SWWMScoreObj d=damnums; d; d=d.next )
-				{
-					if ( (d.starttic < level.maptime) || (d.acc != e.Thing) ) continue;
-					if ( d.score-e.Damage > d.score ) d.score = int.min;
-					else d.score -= e.Damage;
-					spawnme = false;
-					break;
-				}
-			}
-			if ( spawnme ) SWWMScoreObj.Spawn(-e.Damage,e.Thing.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+e.Thing.Height/2),Font.CR_RED,e.Thing);
-			// update combat tracker for it
-			if ( !(e.Thing is 'BossBrain') )
-			{
-				for ( SWWMCombatTracker t=trackers; t; t=t.next )
-				{
-					if ( t.mytarget != e.Thing ) continue;
-					t.updated = level.maptime+35;
-					break;
-				}
-			}
-			// fall dmg
-			ForcedFallerDamager.SetInstigator(e.Thing,e.DamageSource);
-			// stats
-			if ( e.Thing.player )
-			{
-				tookdamage[e.Thing.PlayerNumber()] = true;
-				let s = SWWMStats.Find(e.Thing.player);
-				s.AddDamageTaken(e.Damage);
-				if ( e.Damage > s.toptaken ) s.toptaken = e.Damage;
-			}
-			if ( e.DamageSource && e.DamageSource.player )
-			{
-				let s = SWWMStats.Find(e.DamageSource.player);
-				s.AddDamageDealt(e.Damage);
-				if ( e.Damage > s.topdealt ) s.topdealt = e.Damage;
-			}
-		}
-		if ( e.DamageSource && (e.DamageSource != e.Thing) )
-		{
-			if ( (e.DamageSource.bISMONSTER || e.DamageSource.player || (e.DamageSource is 'ScriptedMarine')) && (e.Thing == players[consoleplayer].mo) && (e.Thing.Health > 0) )
-			{
-				if ( !lastcombat || (gametic > lastcombat+40) )
-				{
-					if ( (e.Thing.IsFriend(e.DamageSource) || SWWMUtility.IsCivilian(e.DamageSource)) )
-						lastcombat = AddOneliner("friendhit",1,10);
-					else if ( (!lastcombat || (gametic > lastcombat+100)) && !Random[DemoLines](0,(e.DamageSource.bBOSS||e.DamageSource.bBOSSDEATH)?2:4) && !SWWMHDoomHandler.IsCuteGirl(e.DamageSource) ) // [HDoom] don't shout at the girls
-						lastcombat = AddOneliner("gethit",1,15);
-				}
-				highesttic = gametic;
-			}
-			// friendly fire lines only fire up if we didn't kill them right away (because then the teamkill line should take priority)
-			if ( (e.DamageSource == players[consoleplayer].mo) && (e.Thing.bISMONSTER || e.Thing.player || (e.Thing is 'ScriptedMarine')) && (e.Thing.Health > 0) )
-			{
-				// make sure it's not a moth, because otherwise they won't shut up about accidentally hurting them (it happens a lot)
-				if ( (e.Thing.IsFriend(e.DamageSource) || SWWMUtility.IsCivilian(e.Thing)) && !(e.Thing is 'LampMoth') )
-				{
-					if ( !lastcombat || (gametic > lastcombat+40) )
-						lastcombat = AddOneliner("hitfriend",1,10);
-					highesttic = gametic;
-				}
-			}
-		}
+		if ( e.Damage > 0 ) DoDamageHandling(e);
+		if ( e.DamageSource && (e.DamageSource != e.Thing) ) DoCombatHit(e);
 		if ( (e.Thing.Health > 0) || e.Thing.bKilled || e.Thing.bCorpse ) return;
+		DoGibThing(e);
 		// romero hax
 		if ( (e.Thing is 'BossBrain') && (e.DamageType == 'Telefrag') )
 			e.DamageSource.DamageMobj(null,null,Actor.TELEFRAG_DAMAGE,'EndLevel');
 		if ( !e.Thing.player && !e.Thing.bIsMonster && !e.Thing.bCountKill && !(e.Thing is 'ScriptedMarine') ) return;
-		if ( (e.DamageSource && e.DamageSource.player && (e.DamageSource != e.Thing)) )
-		{
-			let s = SWWMStats.Find(e.DamageSource.player);
-			if ( s )
-			{
-				s.kills++;
-				s.AddWeaponKill(e.Inflictor,e.Thing,e.DamageType);
-			}
-			if ( e.DamageSource == players[consoleplayer].mo )
-			{
-				highesttic = gametic;
-				if ( !lastcombat || (gametic > lastcombat+40) )
-				{
-					if ( e.Thing.IsFriend(e.DamageSource) || SWWMUtility.IsCivilian(e.Thing) )
-						lastcombat = AddOneliner("friendkill",1,5);
-					else if ( (!lastcombat || (gametic > lastcombat+100)) && !Random[DemoLines](0,(e.Thing.bBOSS||e.Thing.bBOSSDEATH)?2:5) && !SWWMHDoomHandler.IsCuteGirl(e.Thing) )	// [HDoom] don't shout at the girls
-						lastcombat = AddOneliner("scorekill",1,15);
-				}
-			}
-			// no credits unless it's a counted kill or marine (that isn't friendly)
-			if ( e.Thing.IsFriend(e.DamageSource) || (!e.Thing.default.bCountKill && !(e.Thing is 'ScriptedMarine')) )
-				return;
-			int pnum = e.DamageSource.PlayerNumber();
-			if ( level.maptime < (lastkill[pnum]+5*Thinker.TICRATE) )
-				multilevel[pnum]++;
-			else multilevel[pnum] = 0;
-			if ( s && (multilevel[pnum]+1 > s.mkill) )
-				s.mkill = multilevel[pnum]+1;
-			lastkill[pnum] = level.maptime;
-			// scoring
-			int score = min(1000,int(ceil(e.Thing.SpawnHealth()*.05)*10));
-			SWWMScoreObj scr = null;
-			if ( e.DamageSource.player == players[consoleplayer] )
-				scr = SWWMScoreObj.Spawn(score,e.Thing.Vec3Offset(0,0,e.Thing.Height/2));
-			int ofs = 0;
-			if ( e.DamageType == 'Push' )
-			{
-				score += 500;
-				if ( scr )
-				{
-					scr.xscore[ofs] = 0;
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_SHAMEFUL");
-					scr.xcnt = ++ofs;
-				}
-			}
-			else if ( e.DamageType == 'Buttslam' )
-			{
-				score += 200;
-				if ( scr )
-				{
-					scr.xscore[ofs] = 0;
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_BUTTSLAM");
-					scr.xcnt = ++ofs;
-				}
-			}
-			else if ( e.DamageType == 'Love' )
-			{
-				score += 600;
-				if ( scr )
-				{
-					scr.xscore[ofs] = 0;
-					scr.xtcolor[ofs] = Font.FindFontColor('BlushPink');
-					scr.xstr[ofs] = StringTable.Localize((e.Thing is 'WolfensteinSS')?"$SWWM_LOVED_ALT":"$SWWM_LOVED");
-					scr.xcnt = ++ofs;
-				}
-			}
-			if ( (e.Damage >= e.Thing.GetSpawnHealth()*2) || (((e.Thing.Health <= e.Thing.GetGibHealth()) || (e.DamageSource.bEXTREMEDEATH) || (e.Inflictor && e.Inflictor.bEXTREMEDEATH) || (e.DamageType == 'Extreme')) && !e.DamageSource.bNOEXTREMEDEATH && (!e.Inflictor || !e.Inflictor.bNOEXTREMEDEATH)) )
-			{
-				score *= 2;
-				if ( scr )
-				{
-					scr.xscore[ofs] = 0;
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_OVERKILL");
-					scr.xcnt = ++ofs;
-				}
-			}
-			score = int(score*(1.+.5*min(multilevel[pnum],16)));
-			if ( (multilevel[pnum] > 0) && scr )
-			{
-				if ( scr )
-				{
-					scr.xscore[ofs] = (multilevel[pnum]>=16)?int.max:(multilevel[pnum]+1);
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_MULTIKILL");
-					scr.xcnt = ++ofs;
-				}
-			}
-			if ( !tookdamage[pnum] )
-			{
-				int spreebonus = 10*spreecount[pnum];
-				// taper off after 10x (some people go really far with these, holy fuck)
-				if ( spreecount[pnum] > 10 ) spreebonus = int(spreebonus*((spreecount[pnum]/10.)**.25));
-				score += 100+spreebonus;
-				if ( (spreecount[pnum] > 0) && scr )
-				{
-					scr.xscore[ofs] = spreecount[pnum]+1;
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_SPREEKILL");
-					scr.xcnt = ++ofs;
-				}
-			}
-			if ( e.Thing.bBOSS )
-			{
-				score += 2000;
-				if ( scr )
-				{
-					scr.xscore[ofs] = 0;
-					scr.xtcolor[ofs] = Font.CR_FIRE;
-					scr.xstr[ofs] = StringTable.Localize("$SWWM_BOSSKILL");
-					scr.xcnt = ++ofs;
-				}
-			}
-			SWWMCredits.Give(e.DamageSource.player,score);
-			if ( scr ) scr.score = score;	// update final score
-			if ( (level.killed_monsters+1 == level.total_monsters) && !allkills )
-			{
-				allkills = true;
-				SWWMCredits.Give(e.DamageSource.player,1000);
-				Console.Printf(StringTable.Localize("$SWWM_LASTMONSTER"),e.DamageSource.player.GetUserName(),1000);
-				SWWMScoreObj.Spawn(1000,e.DamageSource.Vec3Offset(0,0,e.DamageSource.Height/2));
-			}
-			spreecount[pnum]++;
-			if ( s && (spreecount[pnum] > s.skill) && !tookdamage[pnum] )
-				s.skill = spreecount[pnum];
-		}
+		DoKillScoring(e);
 	}
 
 	private void DoKeyTagFix( Actor a )
@@ -1143,11 +1509,8 @@ Class SWWMHandler : EventHandler
 	{
 		if ( e.Thing is 'Inventory' )
 			CopyFloatBob(e.Thing);
-		if ( swwm_doomfall && e.Thing.bISMONSTER && !level.monsterfallingdamage )
-			ForcedFallerDamager.TrackBody(e.Thing);
-		// alternate form without extra thinker, just needs PR #1153
-		//if ( swwm_doomfall && e.Thing.bISMONSTER )
-		//	e.Thing.bFALLDAMAGE = true;
+		if ( swwm_doomfall && e.Thing.bISMONSTER )
+			e.Thing.bFALLDAMAGE = true;
 		if ( e.Thing is 'Key' )
 		{
 			DoKeyTagFix(e.Thing);
@@ -1159,18 +1522,194 @@ Class SWWMHandler : EventHandler
 			e.Thing.A_SetSize(20,40);
 			e.Thing.bNOBLOOD = true;
 		}
-		else if ( (e.Thing is 'MBFHelperDog') || ((e.Thing is 'Cacodemon') && !(e.Thing is 'DeadCacodemon')) )
+		else if ( SWWMUtility.IdentifyingDog(e.Thing) || SWWMUtility.IdentifyingCaco(e.Thing)
+			|| SWWMUtility.IdentifyingDrug(e.Thing) || SWWMUtility.IdentifyingDoubleBoi(e.Thing) )
 		{
-			// you can pet the dog, and you can also pet the caco
+			// you can pet the dog, and you can also pet the caco (and friends)
 			let hp = Actor.Spawn("HeadpatTracker",e.Thing.pos);
 			hp.target = e.Thing;
 		}
-		if ( !swwm_notrack && (e.Thing.bSHOOTABLE || e.Thing.bISMONSTER) && !(e.Thing is 'LampMoth') && !(e.Thing is 'CompanionLamp') ) SWWMCombatTracker.Spawn(e.Thing);
-		if ( swwm_shadows && (e.Thing.bSHOOTABLE || e.Thing.bISMONSTER || e.Thing.bCORPSE || (e.Thing is 'Inventory')) )
+		if ( !swwm_notrack && (e.Thing.bSHOOTABLE || e.Thing.bISMONSTER) && !(e.Thing is 'LampMoth') && !(e.Thing is 'CompanionLamp') )
+			SWWMCombatTracker.Spawn(e.Thing);
+		if ( e.Thing.bSHOOTABLE || e.Thing.bISMONSTER || e.Thing.bCORPSE || (e.Thing is 'Inventory') )
 		{
-			// Uncomment once sprite shadows are added in-engine
-			//if ( ((e.Thing is 'Demolitionist') || (e.Thing.SpawnState.sprite == e.Thing.GetSpriteIndex('XZW1'))) )
+			if ( (swwm_shadows == 2) || ((swwm_shadows == 1) && ((e.Thing is 'Demolitionist') || (e.Thing.SpawnState.sprite == e.Thing.GetSpriteIndex('XZW1')))) )
 				SWWMShadow.Track(e.Thing);
+		}
+		// Ynykron vortex optimization
+		if ( e.Thing.bSHOOTABLE || e.Thing.bMISSILE )
+			SuckableActors.Push(e.Thing);
+		// vanilla blood color changes
+		if ( (e.Thing.GetClass() == "BaronOfHell") || (e.Thing.GetClass() == "HellKnight") || (e.Thing.GetClass() == "Bishop") || (e.Thing.GetClass() == "Korax") )
+		{
+			let gb = Actor.Spawn("GreenBloodReference");
+			e.Thing.CopyBloodColor(gb);
+			gb.Destroy();
+		}
+		else if ( e.Thing.GetClass() == "Cacodemon" )
+		{
+			let bb = Actor.Spawn("BlueBloodReference");
+			e.Thing.CopyBloodColor(bb);
+			bb.Destroy();
+		}
+		else if ( (e.Thing.GetClass() == "Wizard") || (e.Thing.GetClass() == "Heresiarch") || (e.Thing.GetClass() == "Sorcerer2") )
+		{
+			let pb = Actor.Spawn("PurpleBloodReference");
+			e.Thing.CopyBloodColor(pb);
+			pb.Destroy();
+		}
+		else if ( e.Thing.GetClass() == "LostSoul" )
+			e.Thing.bNOBLOOD = true;
+		// vanilla boss stuff
+		bool upgrademe = swwm_upgradebosses;
+		int bossmap = WhichVanillaBossMap();
+		if ( bossmap == MAP_DE1M8 )
+		{
+			if ( e.Thing is 'BaronOfHell' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 3;
+			}
+			bosstag = "$BT_BRUISERS";
+		}
+		else if ( bossmap == MAP_DE2M8 )
+		{
+			if ( e.Thing is 'Cyberdemon' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 5;
+			}
+			bosstag = "$BT_CYBIE";
+		}
+		else if ( bossmap == MAP_DE3M8 )
+		{
+			if ( e.Thing is 'Spidermastermind' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 6;
+			}
+			bosstag = "$BT_SPIDER";
+		}
+		else if ( bossmap == MAP_DE4M8 )
+		{
+			if ( e.Thing is 'Spidermastermind' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 4;
+			}
+			bosstag = "$BT_SPIDER2";
+		}
+		else if ( bossmap == MAP_DMAP07 )
+		{
+			if ( (e.Thing is 'Fatso') || (e.Thing is 'Arachnotron') )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe )
+					e.Thing.StartHealth = e.Thing.Health *= 2;
+			}
+			bosstag = "$BT_DIMPLE";
+		}
+		else if ( bossmap == MAP_DMAP30 )
+		{
+			if ( e.Thing is 'BossBrain' )
+			{
+				bossbrainactor = e.Thing;
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 40;	// goodbye, instakills
+			}
+			if ( e.Thing is 'BossEye' )
+				bossviewactor = e.Thing;
+			bosstag = "$BT_IOS";
+		}
+		else if ( bossmap == MAP_HE1M8_HE4M8 )
+		{
+			if ( e.Thing is 'IronLich' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 4;
+			}
+			bosstag = "$BT_LICHES";
+		}
+		else if ( bossmap == MAP_HE2M8_HE5M8 )
+		{
+			if ( e.Thing is 'Minotaur' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 3;
+			}
+			bosstag = "$BT_MINOTAUR";
+		}
+		else if ( bossmap == MAP_HE3M8 )
+		{
+			if ( e.Thing is 'Sorcerer1' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 2;
+				bosstag = "$BT_DSPARIL";
+			}
+			else if ( e.Thing is 'Sorcerer2' )
+			{
+				// second phase
+				bossactors.Clear();
+				initialized = false;
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 8;
+				bosstag = "$BT_DSPARIL2";
+			}
+		}
+		else if ( bossmap == MAP_HMAP38 )
+		{
+			if ( e.Thing is 'ClericBoss' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 2;
+				bosstag = "$BT_CLERIC";
+			}
+		}
+		else if ( bossmap == MAP_HMAP36 )
+		{
+			if ( e.Thing is 'FighterBoss' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 2;
+				bosstag = "$BT_FIGHTER";
+			}
+		}
+		else if ( bossmap == MAP_HMAP37 )
+		{
+			if ( e.Thing is 'MageBoss' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 2;
+				bosstag = "$BT_MAGE";
+			}
+		}
+		else if ( bossmap == MAP_HMAP12 )
+		{
+			if ( e.Thing is 'Dragon' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 4;
+				bosstag = "$BT_DRAGON";
+			}
+		}
+		else if ( bossmap == MAP_HMAP23_HMAP27 )
+		{
+			if ( e.Thing is 'Heresiarch' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 8;
+				bosstag = "$BT_HERESIARCH";
+			}
+		}
+		else if ( bossmap == MAP_HMAP40 )
+		{
+			if ( e.Thing is 'Korax' )
+			{
+				bossactors.Push(e.Thing);
+				if ( upgrademe ) e.Thing.StartHealth = e.Thing.Health *= 10;
+				bosstag = "$BT_KORAX";
+			}
 		}
 	}
 
@@ -1194,38 +1733,108 @@ Class SWWMHandler : EventHandler
 			GenericFlash gf = new("GenericFlash").Setup(flashes[i].cam,flashes[i].c,flashes[i].duration);
 			StatusBar.AttachMessage(gf,0,BaseStatusBar.HUDMSGLayer_UnderHUD);
 		}
+		if ( (!ui_initialized && initialized) || (ui_initialized && !initialized) )
+		{
+			ui_initialized = true;
+			thealth = 0;
+			for ( int i=0; i<bossactors.Size(); i++ )
+			{
+				if ( !bossactors[i] ) continue;
+				thealth += max(0,bossactors[i].Health);
+			}
+			hmax = thealth;
+			for ( int i=0; i<30; i++ ) oldhealth[i] = thealth;
+			cummdamage = 0;
+			if ( !ihealth ) ihealth = DynamicValueInterpolator.Create(thealth,.1,1,1000);
+			else ihealth.Reset(thealth);
+			if ( !ihealthr ) ihealthr = DynamicValueInterpolator.Create(thealth,.5,1,1000);
+			else ihealthr.Reset(thealth);
+			return;
+		}
+		if ( !ui_initialized ) return;
+		// update healthbar
+		int newhealth = 0;
+		for ( int i=0; i<bossactors.Size(); i++ )
+		{
+			if ( !bossactors[i] ) continue;
+			newhealth += max(0,bossactors[i].Health);
+		}
+		oldhealth[0] = newhealth;
+		int curcumm = max(0,thealth-newhealth);
+		if ( curcumm > 0 )
+		{
+			cummdamage += curcumm;
+			lastcummtic = gametic;
+		}
+		else if ( gametic > lastcummtic+150 ) cummdamage = 0;
+		thealth = newhealth;
+		ihealthr.Update(thealth);
+		if ( thealth > oldhealth[29] )
+			for ( int i=29; i>0; i-- )
+				oldhealth[i] = thealth;
+		ihealth.Update(oldhealth[29]);
+		for ( int i=29; i>0; i-- )
+			oldhealth[i] = oldhealth[i-1];
+		if ( thealth > 0 ) bossalpha = min(3.,bossalpha+1./30.);
+		else bossalpha = max(0,bossalpha-1./50.);
 	}
 
 	override bool InputProcess( InputEvent e )
 	{
-		if ( e.Type == InputEvent.TYPE_KeyDown )
+		if ( (e.Type == InputEvent.TYPE_KeyDown) && (e.KeyChar >= 0x61) && (e.KeyChar <= 0x7A) )
 		{
-			static const int lods[] = {38,24,32,31,24,33,18,50,24,49,18};
-			// what's that spell?
-			// loadsamoney! ... probably
-			if ( e.KeyScan == lods[kcode] )
+			// cheat code handling
+			String cht[] =
 			{
-				kcode++;
-				if ( kcode >= 11 )
+				"swwmlodsofemone", "swwmdeeplore",
+				// SWWM Platinum cheats
+				"swwmimstuck",            "swwmarmojumbo",         "swwmdangimhealthy",
+				"swwmwarriorofzaemonath", "swwmpowerparp",         "swwmcannotseemyhands",
+				"swwmreflectonme",        "swwmgunzmeneeds",       "swwmbloodrainsfromheaven",
+				"swwmnotwannaboom",       "swwmverywrappyoatmeal", "swwmflaggerybingo",
+				"swwmheadsball",          "swwmsmarties",          "swwmnocilla",
+				"swwmmarioisaweenie",     "swwmpunish",            "swwmboingball",
+				"swwmgassy",              "swwmiamsuperman",       "swwmtouchstone"
+			};
+			String cmd[] =
+			{
+				"swwmmoneycheat", "swwmlorecheat",
+				// SWWM Platinum cheats
+				"swwmsafecheat",    "swwmweaponcheat",   "swwmhealcheat",
+				"swwmynykroncheat", "swwmgravcheat",   "swwminvischeat",
+				"swwmbarriercheat", "swwmammocheat", "swwmbloodcheat",
+				"swwmexplocheat",   "swwmallcheat",    "swwmflagcheat",
+				"swwmballcheat",    "swwmsmartcheat",  "swwmnutcheat",
+				"swwmweeniecheat",  "swwmpunishcheat", "swwmball2cheat",
+				"swwmfartcheat",    "swwmsupercheat",  "swwmstonecheat"
+			};
+			bool matchany = false;
+			kstr.AppendCharacter(e.KeyChar);
+			if ( kstr.Length() > 0 )
+			{
+				for ( int i=0; i<cht.Size(); i++ )
 				{
-					SendNetworkEvent("swwmmoneycheat",consoleplayer);
+					if ( kstr != cht[i].Left(kstr.length()) ) continue;
+					matchany = true;
+					if ( kstr != cht[i] ) continue;
+					SendNetworkEvent(cmd[i],consoleplayer);
 					kcode = 0;
+					kstr = "";
+					return true;
 				}
-			}
-			else kcode = 0;
-			static const int deep[] = {32,18,18,25,38,24,19,18};
-			// the deepest lore
-			if ( e.KeyScan == deep[lcode] )
-			{
-				lcode++;
-				if ( lcode >= 8 )
+				if ( !matchany )
 				{
-					SendNetworkEvent("swwmlorecheat",consoleplayer);
-					lcode = 0;
+					kcode = 0;
+					kstr = "";
+				}
+				else
+				{
+					kcode++;
+					if ( kcode > 4 ) return true; // eat keypresses from this point
 				}
 			}
-			else lcode = 0;
-			if ( e.KeyScan == 33 ) // assuming that's the F key on all keyboards (hopefully)
+			// F
+			if ( e.KeyChar == 0x66 )
 			{
 				let demo = Demolitionist(players[consoleplayer].mo);
 				let gone = PlayerGone(players[consoleplayer].mo);
@@ -1241,8 +1850,6 @@ Class SWWMHandler : EventHandler
 					}
 				}
 			}
-			if ( (kcode > 2) || (lcode > 2) )
-				return true;	// eat keypresses from this point
 		}
 		return false;
 	}
@@ -1280,6 +1887,28 @@ Class SWWMHandler : EventHandler
 			e.Replacee = 'Sorcerer2';
 	}
 
+	// do any players not own dual guns yet
+	private bool ShouldSpawnDualExpl()
+	{
+		int np = 0, ng = 0;
+		// check travelling items, in case this was called mid-transition
+		let ti = ThinkerIterator.Create("ExplodiumGun",Thinker.STAT_TRAVELLING);
+		ExplodiumGun g;
+		while ( g = ExplodiumGun(ti.Next()) )
+		{
+			np++;
+			if ( g.Amount > 1 ) ng++;
+		}
+		if ( np > 0 ) return (ng < np);
+		for ( int i=0; i<MAXPLAYERS; i++ )
+		{
+			if ( !playeringame[i] || !players[i].mo ) continue;
+			np++;
+			if ( players[i].mo.CountInv("ExplodiumGun") > 1 ) ng++;
+		}
+		return (ng < np);
+	}
+
 	override void CheckReplacement( ReplaceEvent e )
 	{
 		// respect final replacements
@@ -1291,7 +1920,9 @@ Class SWWMHandler : EventHandler
 		static const Class<Actor> purplepool[] = {"PurpleShell","PurpleShell2","PurpleShell4"};
 		static const Class<Actor> bluepool[] = {"BlueShell","BlueShell2","BlueShell4"};
 		static const Class<Actor> blackpool[] = {"BlackShell","BlackShell2"};
-		if ( e.Replacee is 'ItemFog' ) e.Replacement = 'SWWMItemFog';
+		// only replace vanilla blood if no other gore mod is doing it
+		if ( (e.Replacee == "Blood") && (!e.Replacement || e.Replacement == "Blood") && swwm_blood ) e.Replacement = "mkBlood";
+		else if ( e.Replacee is 'ItemFog' ) e.Replacement = 'SWWMItemFog';
 		else if ( e.Replacee is 'TeleportFog' ) e.Replacement = 'SWWMTeleportFog';
 		else if ( (e.Replacee is 'CommanderKeen') && (!e.Replacement || (e.Replacement == 'CommanderKeen')) )
 		{
@@ -1302,7 +1933,8 @@ Class SWWMHandler : EventHandler
 				if ( s.bDEHACKED ) dehackery = true;
 				if ( s.NextState == s ) break;
 			}
-			if ( !dehackery ) e.Replacement = 'SWWMHangingKeen';
+			if ( dehackery ) return;
+			e.Replacement = 'SWWMHangingKeen';
 		}
 		else if ( e.Replacee is 'RedCard' )
 		{
@@ -1323,30 +1955,22 @@ Class SWWMHandler : EventHandler
 		else if ( e.Replacee is 'KeyBlue' ) e.Replacement = 'SWWMKeyBlue';
 		else if ( e.Replacee is 'KeyYellow' ) e.Replacement = 'SWWMKeyYellow';
 		else if ( e.Replacee.GetClassName() == 'KeyRed' ) e.Replacement = 'SWWMKeyRed';
-		else if ( (e.Replacee is 'Chainsaw') || (e.Replacee is 'Gauntlets') || (e.Replacee is 'FWeapAxe') ) e.Replacement = 'PusherWeapon';
+		else if ( (e.Replacee is 'Chainsaw') || (e.Replacee is 'Gauntlets') || (e.Replacee is 'FWeapAxe') )
+		{
+			if ( ShouldSpawnDualExpl() ) e.Replacement = Random[Replacements](0,1)?'ExplodiumGun':'PusherWeapon';
+			else e.Replacement = 'PusherWeapon';
+		}
 		else if ( (e.Replacee is 'Fist') || (e.Replacee is 'Staff') ) e.Replacement = 'DeepImpact';
 		else if ( (e.Replacee is 'Pistol') || (e.Replacee is 'GoldWand') || (e.Replacee is 'FWeapFist') || (e.Replacee is 'CWeapMace') || (e.Replacee is 'MWeapWand') ) e.Replacement = 'ExplodiumGun';
 		else if ( (e.Replacee is 'Shotgun') || (e.Replacee is 'CWeapStaff') ) e.Replacement = 'Spreadgun';
 		else if ( (e.Replacee is 'SuperShotgun') || (e.Replacee is 'MWeapFrost') ) e.Replacement = 'Wallbuster';
-		else if ( e.Replacee is 'Crossbow' )
-		{
-			if ( Random[Replacements](0,2) ) e.Replacement = 'Spreadgun';
-			else e.Replacement = 'Wallbuster';
-		}
-		else if ( (e.Replacee is 'Chaingun') || (e.Replacee is 'Blaster') || (e.Replacee is 'FWeapHammer') ) e.Replacement = 'Eviscerator';
-		else if ( (e.Replacee is 'RocketLauncher') || (e.Replacee is 'PhoenixRod') || (e.Replacee is 'FWeaponPiece3') ) e.Replacement = 'Hellblazer';
-		else if ( (e.Replacee is 'PlasmaRifle') || (e.Replacee is 'SkullRod') )
-		{
-			if ( Random[Replacements](0,2) ) e.Replacement = 'Sparkster';
-			else e.Replacement = 'SilverBullet';
-		}
+		else if ( e.Replacee is 'Crossbow' ) e.Replacement = Random[Replacements](0,2)?'Spreadgun':'Wallbuster';
+		else if ( (e.Replacee is 'Chaingun') || (e.Replacee is 'Blaster') || (e.Replacee is 'FWeaponPiece3') ) e.Replacement = 'Eviscerator';
+		else if ( (e.Replacee is 'RocketLauncher') || (e.Replacee is 'PhoenixRod') || (e.Replacee is 'FWeapHammer') ) e.Replacement = 'Hellblazer';
+		else if ( (e.Replacee is 'PlasmaRifle') || (e.Replacee is 'SkullRod') ) e.Replacement = Random[Replacements](0,2)?'Sparkster':'SilverBullet';
 		else if ( e.Replacee is 'CWeapFlame' ) e.Replacement = 'Sparkster';
 		else if ( e.Replacee is 'MWeapLightning' ) e.Replacement = 'SilverBullet';
-		else if ( (e.Replacee is 'BFG9000') || (e.Replacee is 'Mace') )
-		{
-			if ( Random[Replacements](0,2) )  e.Replacement = 'CandyGun';
-			else e.Replacement = 'Ynykron';
-		}
+		else if ( (e.Replacee is 'BFG9000') || (e.Replacee is 'Mace') ) e.Replacement = Random[Replacements](0,2)?'CandyGun':'Ynykron';
 		else if ( e.Replacee is 'CWeaponPiece2' ) e.Replacement = 'CandyGun';
 		else if ( e.Replacee is 'MWeaponPiece1' ) e.Replacement = 'Ynykron';
 		else if ( (e.Replacee == 'Clip') || (e.Replacee == 'GoldWandAmmo') || (e.Replacee == 'GoldWandHefty') )
@@ -1437,35 +2061,10 @@ Class SWWMHandler : EventHandler
 				break;
 			}
 		}
-		else if ( e.Replacee == 'ClipBox' )
-		{
-			if ( Random[Replacements](0,3) ) e.Replacement = 'EvisceratorShell';
-			else if ( Random[Replacements](0,4) ) e.Replacement = 'EvisceratorTrioSpawn';
-			else e.Replacement = 'EvisceratorSixPack';
-		}
+		else if ( e.Replacee == 'ClipBox' ) e.Replacement = Random[Replacements](0,3)?'EvisceratorShell':Random[Replacements](0,4)?'EvisceratorTrioSpawn':'EvisceratorSixPack';
 		else if ( e.Replacee == 'BlasterAmmo' ) e.Replacement = 'EvisceratorShell';
-		else if ( e.Replacee == 'BlasterHefty' )
-		{
-			if ( Random[Replacements](0,4) ) e.Replacement = 'EvisceratorTrioSpawn';
-			else e.Replacement = 'EvisceratorSixPack';
-		}
-		else if ( (e.Replacee == 'RocketAmmo') || (e.Replacee == 'PhoenixRodAmmo') || (e.Replacee == 'MaceAmmo') )
-		{
-			switch ( Random[Replacements](0,6) )
-			{
-			case 0:
-			case 1:
-			case 2:
-			case 3:
-				e.Replacement = 'HellblazerMissiles';
-				break;
-			case 4:
-			case 5:
-			case 6:
-				e.Replacement = 'HellblazerCrackshots';
-				break;
-			}
-		}
+		else if ( e.Replacee == 'BlasterHefty' ) e.Replacement = Random[Replacements](0,4)?'EvisceratorTrioSpawn':'EvisceratorSixPack';
+		else if ( (e.Replacee == 'RocketAmmo') || (e.Replacee == 'PhoenixRodAmmo') || (e.Replacee == 'MaceAmmo') ) e.Replacement = Random[Replacements](0,2)?'HellblazerMissiles':'HellblazerCrackshots';
 		else if ( (e.Replacee == 'RocketBox') || (e.Replacee == 'PhoenixRodHefty') || (e.Replacee == 'MaceHefty') )
 		{
 			switch ( Random[Replacements](0,11) )
@@ -1499,7 +2098,8 @@ Class SWWMHandler : EventHandler
 		}
 		else if ( (e.Replacee == 'Cell') || (e.Replacee == 'SkullRodAmmo') )
 		{
-			if ( Random[Replacements](0,3) ) e.Replacement = 'SparkUnit';
+			if ( Random[Replacements](0,2) ) e.Replacement = Random[Replacements](0,2)?'HellblazerRavagers':'HellblazerWarheads';
+			else if ( Random[Replacements](0,3) ) e.Replacement = 'SparkUnit';
 			else if ( !Random[Replacements](0,3) ) e.Replacement = 'CandyGunBullets';
 			else e.Replacement = Random[Replacements](0,2)?'SilverBullets':'SilverBullets2';
 		}
@@ -1530,17 +2130,9 @@ Class SWWMHandler : EventHandler
 		else if ( (e.Replacee == 'HealthBonus') || (e.Replacee == 'CrystalVial') ) e.Replacement = 'HealthNuggetItem';
 		else if ( e.Replacee == 'Stimpack' ) e.Replacement = 'TetraHealthItem';
 		else if ( e.Replacee == 'Medikit' ) e.Replacement = 'CubeHealthItem';
-		else if ( e.Replacee == 'ArtiHealth' )
-		{
-			if ( gameinfo.gametype&GAME_Heretic && Random[Replacements](0,1) ) e.Replacement = 'CubeHealthItem';
-			else e.Replacement = 'TetraHealthItem';
-		}
-		else if ( (e.Replacee == 'Soulsphere') || (e.Replacee == 'ArtiSuperHealth') )
-		{
-			if ( gameinfo.gametype&GAME_Hexen ) e.Replacement = 'CubeHealthItem';
-			else e.Replacement = 'RefresherItem';
-		}
-		else if ( e.Replacee == 'ArtiHealingRadius' ) e.Replacement = 'RefresherItem';
+		else if ( e.Replacee == 'ArtiHealth' ) e.Replacement = Random[Replacements](0,1)?'CubeHealthItem':'TetraHealthItem';
+		else if ( (e.Replacee == 'Soulsphere') || (e.Replacee == 'ArtiSuperHealth') ) e.Replacement = 'RefresherItem';
+		else if ( e.Replacee == 'ArtiHealingRadius' ) e.Replacement = 'SWWMNothing';
 		else if ( (e.Replacee == 'Megasphere') || (e.Replacee == 'ArtiEgg') || (e.Replacee == 'PlatinumHelm') ) e.Replacement = 'GrilledCheeseSandwich';
 		else if ( (e.Replacee == 'Blursphere') || (e.Replacee == 'ArtiInvisibility') || (e.Replacee == 'AmuletOfWarding') ) e.Replacement = 'GhostArtifact';
 		else if ( e.Replacee == 'Radsuit' ) e.Replacement = 'EBarrier';
@@ -1552,6 +2144,10 @@ Class SWWMHandler : EventHandler
 		else if ( (e.Replacee == 'GreenArmor') || (e.Replacee == 'SilverShield') || (e.Replacee == 'MeshArmor') ) e.Replacement = 'BlastSuitItem';
 		else if ( (e.Replacee == 'BlueArmor') || (e.Replacee == 'FalconShield') || (e.Replacee == 'EnchantedShield') ) e.Replacement = 'WarArmorItem';
 		else if ( (e.Replacee == 'ArtiPork') || (e.Replacee == 'ArtiDarkServant') || (e.Replacee == 'ArtiTeleport') || (e.Replacee == 'ArtiTeleportOther') ) e.Replacement = 'ChanceboxSpawner';
+		else return;
+		// this last part is kind of ugly, but it works
+		// guarantees that OUR replacements are all final
+		e.IsFinal = true;
 	}
 
 	override void NetworkProcess( ConsoleEvent e )
@@ -1729,29 +2325,6 @@ Class SWWMHandler : EventHandler
 			if ( dist < 2000 )
 				Console.Printf("\cx%s\cx: %s\c-",players[e.Args[0]].GetUserName(),StringTable.Localize(e.Name.Mid(19)));
 		}
-		else if ( e.Name ~== "swwmmoneycheat" )
-		{
-			if ( consoleplayer == e.Args[0] )
-			{
-				Console.Printf("\cfLOADSAMONEY!\c-");
-				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
-				S_StartSound("misc/emone",CHAN_VOICE,CHANF_UI);
-			}
-			SWWMCredits.Give(players[e.Args[0]],1000000000);
-			SWWMScoreObj.Spawn(1000000000,players[e.Args[0]].mo.Vec3Offset(0,0,players[e.Args[0]].mo.Height/2));
-		}
-		else if ( e.Name ~== "swwmlorecheat" )
-		{
-			// look up all lore files
-			for ( int l=0; l<Wads.GetNumLumps(); l++ )
-			{
-				String fn = Wads.GetLumpFullName(l);
-				if ( fn.Left(13) != "lore/default/" ) continue;
-				int ext = fn.IndexOf(".txt");
-				if ( ext != fn.Length()-4 ) continue;
-				SWWMLoreLibrary.Add(players[e.Args[0]],fn.Mid(13,ext-13));
-			}
-		}
 		else if ( e.Name.Left(8) ~== "swwmcbt." )
 		{
 			// from wikipedia, the free encyclopedia
@@ -1786,6 +2359,293 @@ Class SWWMHandler : EventHandler
 			if ( e.Args[0] != consoleplayer ) return;
 			checklist.Clear();
 		}
+		// CHEATS
+		else if ( e.Name ~== "swwmmoneycheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			// what's that spell?
+			// loadsamoney! ... probably
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyLOADSAMONEY!\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/emone",CHAN_VOICE,CHANF_UI);
+			}
+			SWWMCredits.Give(players[e.Args[0]],1000000000);
+			SWWMScoreObj.Spawn(1000000000,players[e.Args[0]].mo.Vec3Offset(0,0,players[e.Args[0]].mo.Height/2));
+		}
+		else if ( e.Name ~== "swwmlorecheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyKNOWLEDGE!\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/lamborghini",CHAN_VOICE,CHANF_UI);
+			}
+			// look up all lore files
+			for ( int l=0; l<Wads.GetNumLumps(); l++ )
+			{
+				String fn = Wads.GetLumpFullName(l);
+				if ( fn.Left(13) != "lore/default/" ) continue;
+				int ext = fn.IndexOf(".txt");
+				if ( ext != fn.Length()-4 ) continue;
+				SWWMLoreLibrary.Add(players[e.Args[0]],fn.Mid(13,ext-13));
+			}
+		}
+		else if ( e.Name ~== "swwmsafecheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyStay out of trouble.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+			}
+			Vector3 safepos;
+			double safeangle;
+			[safepos, safeangle] = level.PickPlayerStart(e.Args[0]);
+			players[e.Args[0]].mo.Teleport(safepos,safeangle,TF_TELEFRAG|TF_FORCED|TF_USESPOTZ);
+		}
+		else if ( e.Name ~== "swwmweaponcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyYou better be happy now\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/w_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			for ( int i=0; i<AllActorClasses.Size(); i++ )
+			{
+				let w = (Class<SWWMWeapon>)(AllActorClasses[i]);
+				if ( !w || (w == 'SWWMWeapon') ) continue;
+				let def = GetDefaultByType(w);
+				if ( def.bCHEATNOTWEAPON ) continue;
+				let ow = players[e.Args[0]].mo.FindInventory(w);
+				if ( ow && (ow.Amount >= ow.MaxAmount) ) continue;
+				if ( ow ) ow.Amount = ow.MaxAmount;
+				else players[e.Args[0]].mo.GiveInventory(w,def.MaxAmount);
+			}
+		}
+		else if ( e.Name ~== "swwmhealcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyRemember to stay fit.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/health_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			players[e.Args[0]].health = players[e.Args[0]].mo.health = 1000;
+		}
+		else if ( e.Name ~== "swwmynykroncheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyYou're still crazy.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/w_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			players[e.Args[0]].mo.GiveInventory("Ynykron",1);
+		}
+		else if ( e.Name ~== "swwmgravcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyGot something floatier.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/p_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			let g = GravityPower(players[e.Args[0]].mo.FindInventory("GravityPower"));
+			if ( g ) g.EffectTics += g.default.EffectTics;
+			else players[e.Args[0]].mo.GiveInventory("GravityPower",1);
+		}
+		else if ( e.Name ~== "swwminvischeat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyProbably because you're invisible.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/p_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			let g = GhostPower(players[e.Args[0]].mo.FindInventory("GhostPower"));
+			if ( g ) g.EffectTics += g.default.EffectTics;
+			else players[e.Args[0]].mo.GiveInventory("GhostPower",1);
+		}
+		else if ( e.Name ~== "swwmbarriercheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cySafe from those pesky elements.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/p_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			let b = BarrierPower(players[e.Args[0]].mo.FindInventory("BarrierPower"));
+			if ( b ) b.EffectTics += b.default.EffectTics;
+			else players[e.Args[0]].mo.GiveInventory("BarrierPower",1);
+		}
+		else if ( e.Name ~== "swwmammocheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyDon't squander it.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("misc/ammo_pkup",CHAN_VOICE,CHANF_UI);
+			}
+			players[e.Args[0]].mo.GiveInventory("HammerspaceEmbiggener",16,true);
+			for ( Inventory i=players[e.Args[0]].mo.inv; i; i=i.inv )
+			{
+				if ( !(i is 'Ammo') ) continue;
+				i.Amount = i.MaxAmount;
+			}
+		}
+		else if ( e.Name ~== "swwmbloodcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyEdgy...\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmexplocheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyThat cheat's not needed anymore.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmallcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyStill as wrappy as it's always been.\c-");
+				S_StartSound("menu/buyinv",CHAN_ITEM,CHANF_UI);
+				S_StartSound("fabricator/use",CHAN_VOICE,CHANF_UI);
+			}
+			players[e.Args[0]].mo.CheatGive("all",0);
+		}
+		else if ( e.Name ~== "swwmflagcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyThere are no flags here.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmballcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cy\"Balls on your head\"? What was I even thinking...\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmsmartcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cySkittles are better anyway.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmnutcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyI'm way past that, it was bad for my health.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmweeniecheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyAlways has been.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmpunishcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyThis is a bulli free zone.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmball2cheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cy<insert amiga boing ball here>\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmfartcheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyI'd rather not reimplement that one.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmsupercheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyNo, you're the Demolitionist.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
+		else if ( e.Name ~== "swwmstonecheat" )
+		{
+			if ( SWWMUtility.CheatsDisabled(e.Args[0]) )
+				return;
+			if ( consoleplayer == e.Args[0] )
+			{
+				Console.Printf("\cyThe pinnacle of... wait, I misread that.\c-");
+				S_StartSound("misc/nocheat",CHAN_ITEM,CHANF_UI);
+			}
+		}
 	}
 
 	// stuff for hud
@@ -1812,6 +2672,46 @@ Class SWWMHandler : EventHandler
 		if ( !statusbar || !(statusbar is 'SWWMStatusBar') ) return;
 		SWWMStatusBar(statusbar).viewpos = e.viewpos;
 		SWWMStatusBar(statusbar).viewrot = (e.viewangle,e.viewpitch,e.viewroll);
+		if ( slotstrictwarn && (gametic < slotstrictwarn) )
+		{
+			String str = StringTable.Localize("$SWWM_SETSLOTSTRICT");
+			double t = (slotstrictwarn-(gametic+e.FracTic))/20.;
+			double alph = clamp(t,0.,1.);
+			BrokenLines l = newsmallfont.BreakLines(str,300);
+			double yy = (200-l.Count()*newsmallfont.GetHeight())/2;
+			for ( int i=0; i<l.Count(); i++ )
+			{
+				double xx = (320-l.StringWidth(i))/2;
+				Screen.DrawText(newsmallfont,Font.CR_UNTRANSLATED,xx,yy,l.StringAt(i),DTA_Clean,true,DTA_Alpha,alph);
+				yy += newsmallfont.GetHeight();
+			}
+		}
+	}
+
+	// called by HUD (done here for the sake of cleaner code)
+	ui void DrawBossBar( SWWMStatusBar bar )
+	{
+		if ( !ui_initialized || (bossalpha <= 0.) ) return;
+		if ( !dodrawbossbar ) dodrawbossbar = CVar.GetCVar('swwm_bosshealthbars',players[consoleplayer]);
+		if ( !dodrawbossbar.GetBool() ) return;
+		if ( !bbar_f ) bbar_f = TexMan.CheckForTexture("graphics/HUD/BossHealthBarBox.png",TexMan.Type_Any);
+		if ( !bbar_r ) bbar_r = TexMan.CheckForTexture("graphics/HUD/BossHealthBar.png",TexMan.Type_Any);
+		if ( !bbar_d ) bbar_d = TexMan.CheckForTexture("graphics/HUD/BossHealthBarDecay.png",TexMan.Type_Any);
+		Vector2 vpos = ((bar.ss.x-300)/2.,bar.ss.y-(bar.margin+35));
+		Screen.DrawTexture(bbar_f,false,vpos.x-2,vpos.y-2,DTA_VirtualWidthF,bar.ss.x,DTA_VirtualHeightF,bar.ss.y,DTA_KeepRatio,true,DTA_Alpha,bossalpha);
+		int rw = int(clamp((ihealthr.GetValue()*300.)/hmax,0.,300.));
+		int dw = int(clamp((ihealth.GetValue()*300.)/hmax,0.,300.));
+		Screen.DrawTexture(bbar_d,false,vpos.x,vpos.y,DTA_VirtualWidthF,bar.ss.x,DTA_VirtualHeightF,bar.ss.y,DTA_KeepRatio,true,DTA_Alpha,bossalpha,DTA_WindowRight,dw);
+		Screen.DrawTexture(bbar_r,false,vpos.x,vpos.y,DTA_VirtualWidthF,bar.ss.x,DTA_VirtualHeightF,bar.ss.y,DTA_KeepRatio,true,DTA_Alpha,bossalpha,DTA_WindowRight,rw);
+		Font barfnt = bar.LangFont(bar.mTewiFont);
+		Font dmgfnt = bar.mTewiFont.mFont;
+		if ( (cummdamage > 0) && (gametic < lastcummtic+150) )
+		{
+			double calph = clamp(((lastcummtic+150)-gametic)/50.,0.,1.);
+			string dnum = String.Format("%d",cummdamage);
+			Screen.DrawText(dmgfnt,Font.CR_RED,vpos.x+300-dmgfnt.StringWidth(dnum),vpos.y-(dmgfnt.GetHeight()+2),dnum,DTA_VirtualWidthF,bar.ss.x,DTA_VirtualHeightF,bar.ss.y,DTA_KeepRatio,true,DTA_Alpha,bossalpha*calph);
+		}
+		Screen.DrawText(barfnt,Font.CR_WHITE,vpos.x,vpos.y-(barfnt.GetHeight()+2),StringTable.Localize((funtags&&funtags.GetBool())?(bosstag.."_FUN"):bosstag),DTA_VirtualWidthF,bar.ss.x,DTA_VirtualHeightF,bar.ss.y,DTA_KeepRatio,true,DTA_Alpha,bossalpha);
 	}
 
 	// various shaders
@@ -1825,12 +2725,29 @@ Class SWWMHandler : EventHandler
 		let rage = RagekitPower(mo.FindInventory("RagekitPower"));
 		if ( pc && rage && useshaders.GetBool() )
 		{
-			Shader.SetEnabled(p,"RagekitShader",true);
-			Shader.SetUniform1f(p,"RagekitShader","timer",(gametic+e.FracTic)/Thinker.TICRATE);
-			double xstrastr = 1.+max(0,rage.lastpulse-(gametic+e.Fractic))/35.;
-			Shader.SetUniform1f(p,"RagekitShader","xtrastr",xstrastr**2.);
+			if ( !altrage ) altrage = CVar.GetCVar('swwm_rageshader',p);
+			if ( altrage.GetBool() )
+			{
+				Shader.SetEnabled(p,"RagekitShader",false);
+				Shader.SetEnabled(p,"RagekitAltShader",true);
+				Shader.SetUniform1f(p,"RagekitAltShader","timer",(gametic+e.FracTic)/Thinker.TICRATE);
+				double xstrastr = 1.+max(0,rage.lastpulse-(gametic+e.Fractic))/35.;
+				Shader.SetUniform1f(p,"RagekitAltShader","xtrastr",xstrastr**2.);
+			}
+			else
+			{
+				Shader.SetEnabled(p,"RagekitAltShader",false);
+				Shader.SetEnabled(p,"RagekitShader",true);
+				Shader.SetUniform1f(p,"RagekitShader","timer",(gametic+e.FracTic)/Thinker.TICRATE);
+				double xstrastr = 1.+max(0,rage.lastpulse-(gametic+e.Fractic))/35.;
+				Shader.SetUniform1f(p,"RagekitShader","xtrastr",xstrastr**2.);
+			}
 		}
-		else Shader.SetEnabled(p,"RagekitShader",false);
+		else
+		{
+			Shader.SetEnabled(p,"RagekitShader",false);
+			Shader.SetEnabled(p,"RagekitAltShader",false);
+		}
 		let ghost = GhostPower(mo.FindInventory("GhostPower"));
 		if ( pc && ghost && useshaders.GetBool() ) Shader.SetEnabled(p,"GhostShader",true);
 		else Shader.SetEnabled(p,"GhostShader",false);
@@ -1942,4 +2859,17 @@ Class SWWMHandler : EventHandler
 		if ( !hnd ) return;	// not supposed to happen
 		hnd.flashes.push(qf);
 	}
+
+	// can't use this until I actually figure out how to make those walls damageable
+	/*override void WorldLineDamaged( WorldEvent e )
+	{
+		// allow boss brain to take (reduced) damage from the facewall being shot
+		if ( level.mapname ~== "MAP30" )
+		{
+			if ( !SWWMUtility.IsIOSWall(e.DamageLine) ) return;
+			if ( bossbrainactor )
+				bossbrainactor.DamageMobj(e.Inflictor,e.DamageSource,e.Damage/3,e.DamageType,e.DamageFlags,e.DamageAngle);
+			e.NewDamage = 0;
+		}
+	}*/
 }

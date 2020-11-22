@@ -156,7 +156,7 @@ Class SpreadImpact : Actor
 	override void PostBeginPlay()
 	{
 		Super.PostBeginPlay();
-		if ( swwm_extraalert ) A_AlertMonsters(200);
+		if ( swwm_extraalert ) A_AlertMonsters(swwm_uncapalert?0:200);
 		A_StartSound("spreadgun/pellet",CHAN_VOICE,CHANF_DEFAULT,.4,4.);
 		A_SprayDecal("TinyPock",-20);
 		int numpt = Random[Spreadgun](2,4)-special1;
@@ -203,7 +203,7 @@ Class SlugImpact : Actor
 	override void PostBeginPlay()
 	{
 		Super.PostBeginPlay();
-		if ( swwm_extraalert ) A_AlertMonsters(500);
+		if ( swwm_extraalert ) A_AlertMonsters(swwm_uncapalert?0:500);
 		A_StartSound("spreadgun/slug",CHAN_VOICE,CHANF_DEFAULT,1.,2.);
 		A_SprayDecal("Pock",-20);
 		int numpt = Random[Spreadgun](5,10)-special1;
@@ -384,7 +384,7 @@ Class DragonBreathArm : Actor
 				l.target = p;
 			}
 			if ( !(ReactionTime%2) )
-				SWWMUtility.DoExplosion(self,1+(reactiontime*1.5),1000+200*reactiontime,150-6*reactiontime,ignoreme:bHITOWNER?null:target);
+				SWWMUtility.DoExplosion(self,1+(reactiontime*1.5),1000+200*reactiontime,150-6*reactiontime,flags:DE_HOWL,ignoreme:bHITOWNER?null:target);
 			double spd = vel.length();
 			vel = (vel*.4+(FRandom[ExploS](-.2,.2),FRandom[ExploS](-.2,.2),FRandom[ExploS](-.2,.2))).unit()*spd;
 			Vector3 pvel = (FRandom[ExploS](-1,1),FRandom[ExploS](-1,1),FRandom[ExploS](-1,1)).unit()*FRandom[ExploS](1,5);
@@ -499,7 +499,7 @@ Class SaltImpact : Actor
 	override void PostBeginPlay()
 	{
 		Super.PostBeginPlay();
-		A_AlertMonsters(6000);
+		A_AlertMonsters(swwm_uncapalert?0:6000);
 		SWWMUtility.DoExplosion(self,25+special2*5,15000,100,40);
 		A_QuakeEx(3,3,3,10,0,250,"",QF_RELATIVE|QF_SCALEDOWN,falloff:150,rollintensity:0.2);
 		A_StartSound("spreadgun/salt",CHAN_VOICE,attenuation:.35);
@@ -623,6 +623,8 @@ Class SaltBeam : Actor
 			{
 				SWWMUtility.DoKnockback(t.Results.HitActor,x,25000);
 				t.Results.HitActor.DamageMobj(self,target,60+Accuracy*5,'Salt',DMG_THRUSTLESS);
+				if ( t.Results.HitActor && t.Results.HitActor.bIsMonster && !Random[Spreadgun](0,3) )
+					t.Results.HitActor.Howl();
 			}
 			Vector3 norm = -x;
 			if ( t.Results.HitType == TRACE_HitWall )
@@ -691,7 +693,7 @@ Class SaltBeam : Actor
 		if ( isFrozen() ) return;
 		A_FadeOut(.04);
 		if ( Random[Spreadgun](-2,args[2]/10) == 0 )
-			SWWMUtility.DoExplosion(self,5+Accuracy,5000,32,ignoreme:target);
+			SWWMUtility.DoExplosion(self,5+Accuracy,5000,32,flags:DE_HOWL,ignoreme:target);
 		if ( ((special2%5) || args[2]) && !special1 ) SpreadOut();
 		args[2]++;
 		if ( !CheckNoDelay() || (tics == -1) ) return;
@@ -876,6 +878,8 @@ Class OnFire : Actor
 				int flg = DMG_THRUSTLESS;
 				if ( victim is 'Centaur' ) flg |= DMG_FOILINVUL;	// you're on fire, that shield is worthless
 				victim.DamageMobj(self,instigator,clamp(int(amount*.1),1,30),'Fire',flg);	// need to use this actor as inflictor to have a proper obituary
+				if ( victim.bISMONSTER && !Random[FlameT](0,3) )
+					victim.Howl();
 			}
 			if ( !victim )
 			{
@@ -1271,7 +1275,7 @@ Class BallImpact : Actor
 	override void PostBeginPlay()
 	{
 		Super.PostBeginPlay();
-		if ( swwm_extraalert ) A_AlertMonsters(500);
+		if ( swwm_extraalert ) A_AlertMonsters(swwm_uncapalert?0:500);
 		A_QuakeEx(3,3,3,12,0,200,"",QF_RELATIVE|QF_SCALEDOWN,falloff:100,rollIntensity:.3);
 		A_StartSound("spreadgun/ball",CHAN_VOICE);
 		A_SprayDecal("WallCrack",-20);
@@ -1350,7 +1354,7 @@ Class TheBall : Actor
 			Spawn("SWWMItemFog",pos);
 			int whichclonk = Random[Spreadgun](1,11);
 			String snd = String.Format("misc/clonk%d",whichclonk);
-			A_AlertMonsters(2500);
+			A_AlertMonsters(swwm_uncapalert?0:2500);
 			A_StartSound(snd,CHAN_VOICE,CHANF_OVERLAP,1.,.2);
 			A_StartSound(snd,CHAN_VOICE,CHANF_OVERLAP,1.,.2);
 			victim.A_QuakeEx(8,8,8,8,0,3000,"",QF_RELATIVE|QF_SCALEDOWN,falloff:300,rollIntensity:1.);
@@ -1370,7 +1374,7 @@ Class TheBall : Actor
 			crit = true;
 		}
 		SWWMUtility.DoKnockback(victim,vel.unit(),slamforce);
-		bool bleeds = (victim && !victim.bINVULNERABLE && !victim.bNOBLOOD && is_schutt);
+		bool bleeds = (victim && !victim.bINVULNERABLE && !victim.bNOBLOOD && !victim.bDORMANT && is_schutt);
 		int newdmg = victim.DamageMobj(self,target,dmg,'Concussion',crit?(DMG_THRUSTLESS|DMG_FOILINVUL):DMG_THRUSTLESS);	// crits ignore invulnerability
 		Vector3 dir = -vel.unit();
 		// slam jam
@@ -1508,7 +1512,7 @@ Class TheBall : Actor
 		if ( BlockingMobj )
 		{
 			bcefact *= .7;
-			if ( !BlockingMobj.bINVULNERABLE && !BlockingMobj.bNOBLOOD )
+			if ( !BlockingMobj.bINVULNERABLE && !BlockingMobj.bNOBLOOD && !BlockingMobj.bDORMANT )
 				bcefact *= .6;
 		}
 		vel = (vel dot HitNormal)*HitNormal*FRandom[Spreadgun](-1.8,-1.)+vel;
@@ -1589,7 +1593,7 @@ Class GoldenImpact : Actor
 	override void PostBeginPlay()
 	{
 		Super.PostBeginPlay();
-		A_AlertMonsters(40000);
+		A_AlertMonsters(swwm_uncapalert?0:40000);
 		SWWMUtility.DoExplosion(self,7777,40000,600,500,DE_EXTRAZTHRUST);
 		A_QuakeEx(9,9,9,40,0,5000,"",QF_RELATIVE|QF_SCALEDOWN,falloff:500,rollintensity:1.5);
 		A_StartSound("spreadgun/goldexpl",CHAN_VOICE,attenuation:.3);
@@ -2103,7 +2107,7 @@ Class Spreadgun : SWWMWeapon
 			int realdmg = dmg?dmg:t.HitList[i].HitDamage;
 			SWWMDamageAccumulator.Accumulate(t.HitList[i].HitActor,realdmg,invoker,self,'shot',!large&&!swwm_shotgib);
 			SWWMUtility.DoKnockback(t.HitList[i].HitActor,t.HitList[i].x+(0,0,0.025),mm*FRandom[Spreadgun](0.4,1.2));
-			if ( t.HitList[i].HitActor.bNOBLOOD || t.HitList[i].HitActor.bINVULNERABLE )
+			if ( t.HitList[i].HitActor.bNOBLOOD || t.HitList[i].HitActor.bDORMANT || t.HitList[i].HitActor.bINVULNERABLE )
 			{
 				let p = Spawn(impact,t.HitList[i].HitLocation);
 				p.angle = atan2(t.HitList[i].x.y,t.HitList[i].x.x)+180;
@@ -2160,7 +2164,7 @@ Class Spreadgun : SWWMWeapon
 			if ( invoker.loadammo != types[i] ) continue;
 			A_SWWMFlash(flashes[i]);
 			A_StartSound(sounds[i],CHAN_WEAPON,CHANF_OVERLAP,attenuation:.6);
-			A_AlertMonsters(louds[i]);
+			A_AlertMonsters(swwm_uncapalert?0:louds[i]);
 			A_QuakeEx(quakes[i],quakes[i],quakes[i],9,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:.2*quakes[i]);
 			A_ZoomFactor(1.-quakes[i]*.04,ZOOM_INSTANT);
 			A_ZoomFactor(1.);

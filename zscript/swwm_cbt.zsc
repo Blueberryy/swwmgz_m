@@ -362,49 +362,6 @@ Class WallbusterReloadMenu : GenericMenu
 	}
 }
 
-Class CBTHandler : StaticEventHandler
-{
-	bool initme;
-	double cbtvol;
-	transient CVar cbtme;
-
-	override void WorldTick()
-	{
-		if ( !cbtme ) cbtme = CVar.GetCVar('swwm_cbtmeme',players[consoleplayer]);
-		if ( !players[consoleplayer].mo ) return;
-		let cbt = players[consoleplayer].mo.FindInventory("Wallbuster");
-		if ( !cbt ) return;
-		if ( cbt == players[consoleplayer].ReadyWeapon )
-		{
-			if ( !initme && (cbtme.GetInt() > 0) )
-			{
-				initme = true;
-				cbtvol = .6;
-			}
-			cbtvol = min(.6,cbtvol+.1);
-			if ( (cbtme.GetInt() >= 1) && !cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
-				cbt.A_StartSound("wallbuster/olddays",CHAN_AMBEXTRA+1,CHANF_UI|CHANF_LOOP,cbtvol,0.);
-			else if ( (cbtme.GetInt() < 1) && cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
-				cbt.A_StopSound(CHAN_AMBEXTRA+1);
-			if ( (cbtme.GetInt() >= 2) && !cbt.IsActorPlayingSound(CHAN_AMBEXTRA+2) )
-			{
-				// restart the music
-				if ( cbt.IsActorPlayingSound(CHAN_AMBEXTRA+1) )
-				{
-					cbt.A_StopSound(CHAN_AMBEXTRA+1);
-					cbt.A_StartSound("wallbuster/olddays",CHAN_AMBEXTRA+1,CHANF_UI|CHANF_LOOP,cbtvol,0.);
-				}
-				cbt.A_StartSound("wallbuster/cbt",CHAN_AMBEXTRA+2,CHANF_UI,cbtvol,0.);
-			}
-			else if ( (cbtme.GetInt() < 2) && cbt.IsActorPlayingSound(CHAN_AMBEXTRA+2) )
-				cbt.A_StopSound(CHAN_AMBEXTRA+2);
-		}
-		else cbtvol = max(0.,cbtvol-.1);
-		cbt.A_SoundVolume(CHAN_AMBEXTRA+1,cbtvol*((cbtme.GetInt()>=2)?.8:1.));
-		cbt.A_SoundVolume(CHAN_AMBEXTRA+2,cbtvol);
-	}
-}
-
 Class BustedQuake : Actor
 {
 	Default
@@ -422,7 +379,7 @@ Class BustedQuake : Actor
 		if ( special1 < 3 ) A_StartSound("wallbuster/smallbust",CHAN_VOICE,CHANF_OVERLAP,min(1.,special1*.32),1./max(1.,special1*.35),1.-special1*.05);
 		else A_StartSound("wallbuster/bigbust",CHAN_VOICE,CHANF_OVERLAP,min(1.,special1*.16),1./max(1.,special1*.35),1.-special1*.03);
 		A_QuakeEx(special1,special1,special1,20+special1*5,0,300+special1*90,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:special1*.1);
-		A_AlertMonsters(2500);
+		A_AlertMonsters(swwm_uncapalert?0:2500);
 	}
 	override void Tick()
 	{
@@ -864,6 +821,10 @@ Class Wallbuster : SWWMWeapon
 	transient ui Font TewiFont;
 	Class<Ammo> curobt;
 
+	ui Vector3 cpos25[25];
+	ui Color ccol25[25];
+	ui Vector2 lagvpos25[25];
+
 	override String GetObituary( Actor victim, Actor inflictor, Name mod, bool playerattack )
 	{
 		if ( curobt is 'RedShell' ) return StringTable.Localize("$O_WALLBUSTER_RED");
@@ -968,6 +929,118 @@ Class Wallbuster : SWWMWeapon
 		}
 	}
 
+	override void HudTick()
+	{
+		Super.HudTick();
+		// 25-trace
+		for ( int i=0; i<25; i++ )
+			[cpos25[i], ccol25[i]] = TraceForCrosshair25(i);
+	}
+
+	override void RenderUnderlay( RenderEvent e )
+	{
+		// draw custom crosshair
+		if ( automapactive || (players[consoleplayer].Camera is 'SecurityCamera') ) return;
+		if ( !phair || !phair.GetBool() ) return;
+		if ( !ch_on ) ch_on = CVar.GetCVar('crosshairon',players[consoleplayer]);
+		if ( !ch_on.GetBool() ) return;
+		if ( !ch_force ) ch_force = CVar.GetCVar('crosshairforce',players[consoleplayer]);
+		if ( ch_force.GetBool() ) return;
+		let sb = SWWMStatusBar(StatusBar);
+		if ( !sb ) return;
+		sb.viewport.FromHud();
+		sb.proj.CacheResolution();
+		sb.proj.CacheFov(players[consoleplayer].fov);
+		sb.proj.OrientForRenderUnderlay(e);
+		sb.proj.BeginProjection();
+		if ( !ch_img ) ch_img = CVar.GetCVar('crosshair',players[consoleplayer]);
+		int cnum = abs(ch_img.GetInt());
+		if ( !cnum ) return;
+		String tn = String.Format("XHAIR%s%d",(Screen.GetWidth()<640)?"S":"B",cnum);
+		TextureID ctex = TexMan.CheckForTexture(tn,TexMan.Type_MiscPatch);
+		if ( !ctex.IsValid() ) ctex = TexMan.CheckForTexture(String.Format("XHAIR%s1",(Screen.GetWidth()<640)?"S":"B"),TexMan.Type_MiscPatch);
+		if ( !ctex.IsValid() ) ctex = TexMan.CheckForTexture("XHAIRS1",TexMan.Type_MiscPatch);
+		Vector2 ts = TexMan.GetScaledSize(ctex);
+		if ( !ch_siz ) ch_siz = CVar.GetCVar('crosshairscale',players[consoleplayer]);
+		double cs = ch_siz.GetFloat();
+		double sz = 1.;
+		if ( cs > 0. ) sz = Screen.GetHeight()*cs/200.;
+		if ( !ch_grow ) ch_grow = CVar.GetCVar('crosshairgrow',players[consoleplayer]);
+		if ( ch_grow.GetBool() ) sz *= sb.CrosshairSize;
+		Vector3 tdir = level.Vec3Diff(e.ViewPos,cpos);
+		// project
+		sb.proj.ProjectWorldPos(e.ViewPos+tdir);
+		Vector2 vpos;
+		if ( !sb.proj.IsInFront() ) return;
+		Vector2 npos = sb.proj.ProjectToNormal();
+		vpos = sb.viewport.SceneToWindow(npos);
+		if ( lagvpos == (0,0) ) lagvpos = vpos;
+		else lagvpos = lagvpos*.7+vpos*.3;	// this will be fucky depending on the FPS, but oh well
+		for ( int i=0; i<25; i++ )
+		{
+			tdir = level.Vec3Diff(e.ViewPos,cpos25[i]);
+			// project
+			sb.proj.ProjectWorldPos(e.ViewPos+tdir);
+			if ( !sb.proj.IsInFront() ) return;
+			npos = sb.proj.ProjectToNormal();
+			vpos = sb.viewport.SceneToWindow(npos);
+			if ( lagvpos25[i] == (0,0) ) lagvpos25[i] = vpos;
+			else lagvpos25[i] = lagvpos25[i]*.7+vpos*.3;	// this will be fucky depending on the FPS, but oh well
+			Screen.DrawTexture(ctex,false,int(lagvpos25[i].x),int(lagvpos25[i].y),DTA_DestWidthF,ts.x*sz,DTA_DestHeightF,ts.y*sz,DTA_AlphaChannel,true,DTA_FillColor,ccol25[i]);
+		}
+	}
+
+	ui Vector3, Color TraceForCrosshair25( int i )
+	{
+		if ( !ctr ) ctr = new("SWWMCrosshairTracer");
+		ctr.ignoreme = Owner;
+		Vector3 x, y, z, ofs;
+		double s;
+		[x, y, z] = swwm_CoordUtil.GetAxes(Owner.pitch,Owner.angle,Owner.roll);
+		ofs = GetTraceOffset25(i);
+		Vector3 origin = level.Vec3Offset(Owner.Vec2OffsetZ(0,0,Owner.player.viewz),ofs.x*x+ofs.y*y+ofs.z*z);
+		ctr.Trace(origin,level.PointInSector(origin.xy),x,10000.,0);
+		if ( !ch_col ) ch_col = CVar.GetCVar('crosshaircolor',players[consoleplayer]);
+		Color col = ch_col.GetInt();
+		if ( !ch_hp ) ch_hp = CVar.GetCVar('crosshairhealth',players[consoleplayer]);
+		if ( ch_hp.GetInt() >= 2 )
+		{
+			int hp = Clamp(Owner.Health,0,200);
+			double sat = (hp<150)?1.:(1.-(hp-150)/100.);
+			Vector3 rgb = SWWMUtility.HSVtoRGB((hp/300.,sat,1.));
+			col = Color(int(rgb.x*255),int(rgb.y*255),int(rgb.z*255));
+		}
+		else if ( ch_hp.GetInt() == 1 )
+		{
+			double hp = Clamp(Owner.Health,0,100)/100.;
+			if ( hp <= 0 ) col = Color(255,0,0);
+			else if ( hp < .3 ) col = Color(255,int(hp*255/.3),0);
+			else if ( hp < .85 ) col = Color(int((.6-hp)*255/.3),255,0);
+			else col = Color(0,255,0);
+		}
+		else if ( (ctr.Results.HitType == TRACE_HitActor) && ctr.Results.HitActor.bSHOOTABLE )
+		{
+			// show target health, rather than our own
+			double hp = ctr.Results.HitActor.Health/double(ctr.Results.HitActor.GetSpawnHealth());
+			if ( hp <= 0 ) col = Color(255,0,0);
+			else if ( hp < .3 ) col = Color(255,int(hp*255/.3),0);
+			else if ( hp < .85 ) col = Color(int((.6-hp)*255/.3),255,0);
+			else col = Color(0,255,0);
+		}
+		if ( ctr.Results.HitType == TRACE_HitNone ) return level.Vec3Offset(origin,x*10000.), col;
+		else return ctr.Results.HitPos, col;
+	}
+
+	clearscope Vector3 GetTraceOffset25( int i ) const
+	{
+		double t1 = 90-int(i%5)*72;
+		double t2 = 360-int(i/5)*72;
+		Vector2 b = (cos(t1),sin(t1))*1.2;
+		b.y += 3.;
+		Vector2 n = (b.x*cos(t2)-b.y*sin(t2),b.x*sin(t2)+b.y*cos(t2));
+		return (10.,3.5+n.x,-6.+n.y);
+	}
+
 	override bool UsesAmmo( Class<Ammo> kind )
 	{
 		static const Class<Ammo> types[] = {"RedShell","GreenShell","BlueShell","PurpleShell"};
@@ -1066,7 +1139,7 @@ Class Wallbuster : SWWMWeapon
 			int realdmg = dmg?dmg:t.HitList[i].HitDamage;
 			SWWMDamageAccumulator.Accumulate(t.HitList[i].HitActor,realdmg,invoker,self,'shot',!large&&!swwm_shotgib);
 			SWWMUtility.DoKnockback(t.HitList[i].HitActor,t.HitList[i].x+(0,0,0.025),mm*FRandom[Wallbuster](0.4,1.2));
-			if ( t.HitList[i].HitActor.bNOBLOOD || t.HitList[i].HitActor.bINVULNERABLE )
+			if ( t.HitList[i].HitActor.bNOBLOOD || t.HitList[i].HitActor.bINVULNERABLE || t.HitList[i].HitActor.bDORMANT )
 			{
 				let p = Spawn(impact,t.HitList[i].HitLocation);
 				p.angle = atan2(t.HitList[i].x.y,t.HitList[i].x.x)+180;
@@ -1108,7 +1181,7 @@ Class Wallbuster : SWWMWeapon
 	}
 	override Vector3 GetTraceOffset()
 	{
-		return (10.,3.5,-1.8);
+		return (10.,3.5,-6.);
 	}
 	action void A_FireShells( int num = 1 )
 	{
@@ -1193,7 +1266,7 @@ Class Wallbuster : SWWMWeapon
 		A_QuakeEx(qk,qk,qk,ql,0,8,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:qk*.15);
 		A_ZoomFactor(1.-qk*.04,ZOOM_INSTANT);
 		A_ZoomFactor(1.);
-		A_AlertMonsters(alertness);
+		A_AlertMonsters(swwm_uncapalert?0:alertness);
 		A_PlayerFire();
 		if ( redflashstr > 0 )
 		{

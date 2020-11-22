@@ -14,6 +14,13 @@ SWWM_GESTURE2 = "Pulgar Arriba";
 SWWM_GESTURE3 = "Victoria";
 SWWM_GESTURE4 = "Soplar Beso";
 SWWM_KBASE = "Menú de Demolicionista";
+// skills
+SWWM_SKCHILL = "\cdDe Relax\c-";
+SWWM_SKEASY = "\ckCon Calmita~\c-";
+SWWM_SKNORMAL = "\ciAventura Adecuada\c-";
+SWWM_SKHARD = "\cgSoy Masoca\c-";
+SWWM_SKLUNATIC = "\crINTENTA MUERTE\c-";
+SWWM_SKLUNATICCONFIRM = "Vas a morir, vas a sufrir.\nEso te lo puedo garantizar.";
 // mod menu
 SWWM_MTITLE = "Opciones de SWWM GZ";
 SWWM_PTITLE = "Opciones de Jugador";
@@ -44,6 +51,7 @@ SWWM_SVHEALTHUSE = "Forzar Auto-Uso de Salud";
 SWWM_SVAMMOUSE = "Forzar Auto-Uso de Fabricadores";
 SWWM_MCREDS = "Créditos de SWWM GZ";
 SWWM_CLEAD = "Desarrollo Principal:";
+SWWM_CDEV2 = "Autoproclamada Maga de ZScript";
 SWWM_CASSETS = "Assets Adicionales:";
 SWWM_ASSBARONS = "Sprites de XDeath para Nobles del Infierno";
 SWWM_ASSOTHERS = "Sprites de XDeath para Demonio, Cacodemonio, Renacido, Archvile";
@@ -52,21 +60,22 @@ SWWM_CMUSIC = "Música Usada:";
 SWWM_CFANART = "Fanart de Intermisión:";
 SWWM_CPATRON = "Mecenas de Patreon:";
 SWWM_CTHANK = "Agradecimientos Especiales:";
-SWWM_CDRAGON2 = "(Por ser un buen dragón mascota)";
-SWWM_CLUCY2 = "(Por la fuente Tewi, que he seguido usando todos estos años)";
-SWWM_CKEKS2 = "(Por libeye, asistencia con el código de manejo de excepciones)";
-SWWM_CZN2 = "(Por el código para alineación con superficies inclinadas)";
-SWWM_CVAL2 = "(Por las huellas personalizadas para Nashgore, y por ser kawaii)";
-SWWM_CSLEDGE2 = "(Por ser un gran colega)";
-SWWM_CSLEDGE3 = "(Y también por razones de lore que me animaron a tomar parte en el modiverso de Doom)";
-SWWM_CSPY2 = "(Por el nivel de entusiasmo mostrado por todo en este mod)";
+SWWM_CMAB2 = "Por ser una grandísima amiga que cree en mí, y por inspirarme a seguir trabajando en lo que me gusta. Me alegro muchísimo de haberte conocido.";
+SWWM_CDRAGON2 = "Por ser un buen dragón mascota que se preocupa por mí.";
+SWWM_CLUCY2 = "Por la fuente Tewi, que he seguido usando todos estos años. Espero que estés donde estés, te encuentres bien.";
+SWWM_CKEKS2 = "Por libeye, asistencia con el código de manejo de excepciones, y también por ser un friki tan guay de Touhou.";
+SWWM_CZN2 = "Por el código para alineación con superficies inclinadas, y a Nash además por ser un molón tío cactus listo.";
+SWWM_CVAL2 = "Por las huellas personalizadas para Nashgore, y por ser una buena amiga y conejita mona.";
+SWWM_CSLEDGE2 = "Por ser un gran colega, no solo conmigo si no con todos nosotros, y también por animarme a tomar parte en el modiverso de Doom.";
+SWWM_CSPY2 = "Por el nivel de entusiasmo mostrado por todo en este mod, y por ser el adorable hermano menor que nunca tuve.";
 SWWM_CINSP1 = "Combine Kegan, HyperUltra64, TerminusEst13, Yholl y amigos";
-SWWM_CINSP2 = "(Por servir de inspiración y por ser gente muy molona)";
+SWWM_CINSP2 = "Por servir de inspiración y por ser gente muy molona. Benditos seais todos, seguid siendo fenomenales.";
 SWWM_CCOMMUNITY1 = "Todo mi súper colegueo de la comunidad de Doom";
-SWWM_CCOMMUNITY2 = "(Por ayudarme a seguir trabajando en esto, y por todo el tiempo que hemos compartido)";
-SWWM_CCOMMUNITY3 = "(Por muchos más años de Doom. ¡Os adoro!)";
-SWWM_CDEVS1 = "Randi, Graf, Rachael, Mental, dpJudas y el resto del equipo de desarrollo de GZDoom";
-SWWM_CDEVS2 = "(Por su trabajo en el source port que me ha devuelto la fe en el modding. ¡Sois la caña!)";
+SWWM_CCOMMUNITY2 = "Por ayudarme a seguir trabajando en esto, y por todo el tiempo que compartimos. Por muchos más años de Doom. ¡Os adoro!";
+SWWM_CDEVS1 = "Randi, Graf, Rachael y el resto del equipo de desarrollo de GZDoom";
+SWWM_CDEVS2 = "Por vuestro trabajo en el source port que me ha devuelto la fe en el modding. No me importa lo que piensen los demás, sois la caña.";
+SWWM_CYOU1 = "Tú";
+SWWM_CYOU2 = "Por jugar a este mod, muchísimas gracias.";
 SWWM_CLOCAL = "Traducción:";
 SWWM_LRUS = "Ruso";
 SWWM_FORCEDISABLE = "Forzar Desactivado";
@@ -133,7 +142,17 @@ SWWM_DROPS_WEAPONS = "Munición y Armas";
 SWWM_SHOTGIB = "Los Perdigones pueden Desviscerar";
 SWWM_COLLECTANIM = "Animaciones de Coleccionables";
 SWWM_SHADOWS = "Sombras Simples";
+SWWM_SHADOWS_OFF = "Nada";
+SWWM_SHADOWS_ON = "Objetos de Mod";
+SWWM_SHADOWS_ALL = "Todo";
 SWWM_PRECISECROSSHAIR = "Mira Precisa";
+SWWM_MCTITLE = "Opciones de Compatibilidad con Mods";
+SWWM_LDSPOIL = "Mostrar Siempre Legendarios";
+SWWM_ETITLE = "Opciones de Efectos";
+SWWM_RAGESHADER = "Shader Alternativo de Ragekit";
+SWWM_CAMHUD = "HUD Completo en Cámaras";
+SWWM_UNCAPALERT = "Rango de Alerta Ilimitado";
+SWWM_COLLECTANIMKEY = "Animaciones de Llaves";
 TOOLTIP_SWWM_VOICETYPE = "Selecciona el pack de voz para el jugador.";
 TOOLTIP_SWWM_MUTEVOICE = "Controla lo que se mutea, si prefieres tener un protagonista más silencioso.";
 TOOLTIP_SWWM_FLASHSTRENGTH = "Los destellos en pantalla suelen ocurrir al disparar algunas armas, puedes reducirlo si este tipo de efectos te causan malestar.";
@@ -205,6 +224,11 @@ TOOLTIP_SWWM_SHOTGIB = "Hay gente a la que no le gusta esto por alguna razón, a
 TOOLTIP_SWWM_COLLECTANIM = "Muestra animaciones especiales en primera persona al recoger coleccionables.";
 TOOLTIP_SWWM_SHADOWS = "Activa sombras redondas para varias entidades. Requiere un reinicio de mapa para tomar efecto completamente.";
 TOOLTIP_SWWM_PRECISECROSSHAIR = "Proyecta la mira en el punto que el arma alcanzará, en vez de quedarse en el centro de la pantalla.";
+TOOLTIP_SWWM_LDSPOIL = "[LegenDoom] Muestra siempre el sufijo de \"Legendario\" en las etiquetas de barra de vida, en lugar de despues de que el enemigo se haya transformado. Desactiva si prefieres no estropear la sorpresa.";
+TOOLTIP_SWWM_RAGESHADER = "El shader normal del Ragekit puede ser dañino para personas con fotosensibilidad. Activando esto se cambia a una alternativa más suave.";
+TOOLTIP_SWWM_CAMHUD = "Por defecto, cuando el jugador está mirando por una cámara, la mayor parte de elementos del HUD excluyendo mensajes son ocultados. Activa esto para mantener el HUD completo.";
+TOOLTIP_SWWM_UNCAPALERT = "Si se activa, todas las armas y proyectiles tendrán un rango de ruido ilimitado. Puede arreglar mapas que usan trampas de teletransporte estilo vanilla.";
+TOOLTIP_SWWM_COLLECTANIMKEY = "Muestra animaciones especiales en primera persona al recoger llaves.";
 // knowledge base
 SWWM_COMINGSOON = "(próximamente)";
 SWWM_MISSTAB = "Misión";
@@ -251,7 +275,6 @@ SWWM_STORETAB = "Tienda";
 SWWM_STOREFULL = "No puedes llevar más de eso";
 SWWM_STOREMUNS = "No tienes suficiente dinero";
 SWWM_NOSTORE = "(no queda nada que comprar)";
-SWWM_GAMETAB = "Juegos";
 SWWM_TRADETAB = "Intercambio";
 SWWM_TRADEFULL = "No puede llevar más de eso";
 SWWM_TRADEFAIL = "No puedes enviar este ítem";
@@ -487,3 +510,10 @@ SWWM_HELP_TECHTXT =
 "Aparte de todo eso, la \cfDemolicionista\c- es también bastante habilidosa saltando por las paredes, o incluso escalándolas. Ciertamente, nada puede detenerte (a menos que el autor del mapa haya deshabilitado saltar).\n"
 "\n"
 "Oh, y no olvides que tu peso es también una buena arma. No solo puedes embestir con facilidad enemigos menores al impulsarte, pero también si aterrizas con una velocidad considerable, puedes crear una onda expansiva que empuje a tus enemigos por los aires y aplaste todo bajo tus pies.\n";
+SWWM_HELP_TIPS = "Consejos Adicionales";
+SWWM_HELP_TIPSTXT =
+"Ten en cuenta que puedes activar puertas y palancas a base de puñetazos o esprintar contra ellas. La opción está ahí, si realmente quieres, y sientes una especial intensidad.\n"
+"\n"
+"Otro tema a saber es que los ítems de este mod tienen colisiones un poco no-estándar, lo cual puede causar problemas al no poder recogerlos a pie. En casos como estos... simplemente usa las manos, obviamente. Puedes pulsar Usar para recoger cualquier cosa que tengas delante, siempre y cuando sea un ítem de este mod.\n"
+"\n"
+"Por último pero no menos importante, ¿sabías que puedes acariciar ciertos enemigos para convertirlos en aliados? No creo que haga falta que te diga cuales. Son rojos, redondos y con forma de amigo. También puedes acariciar perros, si el mapa en el que estas resulta usar perros MBF (aunque esto suele ser poco común).";

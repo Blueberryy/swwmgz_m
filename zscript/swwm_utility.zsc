@@ -8,6 +8,7 @@ enum EDoExplosionFlags
 	DE_THRUWALLS = 8,	// damages through geometry (no sight check)
 	DE_NOTMISSILE = 16,	// instigator is the source itself (normally it'd be its target pointer)
 	DE_EXTRAZTHRUST = 32,	// applies a higher Z thrust to enemies on ground
+	DE_HOWL = 64,		// 25% chance for hit enemies to howl
 };
 
 const FallbackTag = "AWESOME IT'S PENIS"; // used on tag processing, please don't mind the actual string used)
@@ -18,6 +19,31 @@ Class SWWMUtility
 	static clearscope double fract( double a )
 	{
 		return a-floor(a);
+	}
+
+	// not sure if I should use this, looks a bit ugly
+	static clearscope void ThousandsStr( out String s )
+	{
+		String nstr = s;
+		s.Truncate(0);
+		int len = nstr.CodePointCount();
+		int t = len;
+		if ( nstr.Left(1) == "-" ) t++;
+		for ( int i=0, pos=0; i<len; i++ )
+		{
+			int ch;
+			[ch, pos] = nstr.GetNextCodePoint(pos);
+			s.AppendCharacter(ch);
+			t = (t-1)%3;
+			if ( (pos < len) && !t )
+				s.AppendCharacter(0x2C); // comma
+		}
+	}
+	static clearscope String ThousandsNum( int n )
+	{
+		String nstr = String.Format("%d",n);
+		ThousandsStr(nstr);
+		return nstr;
 	}
 
 	// this can probably be simplified, but I'm lazy
@@ -37,7 +63,6 @@ Class SWWMUtility
 	static clearscope void StripColor( out String str )
 	{
 		int len = str.CodePointCount();
-		int i = 0;
 		for ( int i=0, pos=0; i<len; i++ )
 		{
 			int remlen = 0;
@@ -713,6 +738,8 @@ Class SWWMUtility
 	{
 		if ( !Victim )
 			return;
+		if ( Victim.bDORMANT )	// no dormant knockback
+			return;
 		if ( !Victim.bSHOOTABLE && !Victim.bVULNERABLE )
 			return;
 		if ( Victim.bDONTTHRUST || (Victim.Mass >= Actor.LARGE_MASS) )
@@ -726,10 +753,11 @@ Class SWWMUtility
 
 	// complete spherical and more accurate replacement of A_Explode
 	// 100% free of the buggery GZDoom's own splash damage has
-	static play void DoExplosion( Actor Source, double Damage, double MomentumTransfer, double ExplosionRadius, double FullDamageRadius = 0., int flags = 0, Name DamageType = '', Actor ignoreme = null )
+	// returns the number of shootables hit/killed
+	static play int, int DoExplosion( Actor Source, double Damage, double MomentumTransfer, double ExplosionRadius, double FullDamageRadius = 0., int flags = 0, Name DamageType = '', Actor ignoreme = null )
 	{
 		// debug, display radius sphere
-		if ( swwm_explosiondebug )
+		if ( swwm_debugblast )
 		{
 			let s = Actor.Spawn("RadiusDebugSphere",Source.pos);
 			s.Scale *= ExplosionRadius;
@@ -745,6 +773,7 @@ Class SWWMUtility
 		double brange = 1./(ExplosionRadius-FullDamageRadius);
 		Actor Instigator = (flags&DE_NOTMISSILE)?Source:Source.target;
 		BlockThingsIterator bi = BlockThingsIterator.Create(Source,ExplosionRadius*2);	// test with doubled radius, just to be sure
+		int nhit = 0, nkill = 0;
 		while ( bi.Next() )
 		{
 			Actor a = bi.Thing;
@@ -791,16 +820,20 @@ Class SWWMUtility
 				if ( (flags&DE_BLAST) && a.bCANBLAST && !a.bDONTBLAST ) a.bBLASTED = true;
 			}
 			// hit it
+			nhit++;
 			int dmg = int(Damage*damagescale);
 			if ( dmg <= 0 ) continue;	// no harm
 			int ndmg = a.DamageMobj(Source,Instigator,dmg,(DamageType=='')?Source.DamageType:DamageType,DMG_EXPLOSION,atan2(-dir.y,-dir.x));
-			if ( !(flags&DE_NOBLEED) ) a.TraceBleed((ndmg>0)?ndmg:dmg,Source);
+			if ( a && !(flags&DE_NOBLEED) ) a.TraceBleed((ndmg>0)?ndmg:dmg,Source);
+			if ( (flags&DE_HOWL) && a && a.bISMONSTER && !Random[DoBlast](0,3) ) a.Howl();
+			if ( !a || (a.Health <= 0) ) nkill++;
 		}
+		return nhit, nkill;
 	}
 
 	static play bool InPlayerFOV( PlayerInfo p, Actor a, double maxdist = 0. )
 	{
-		double vfov = CVar.GetCVar('fov',p).GetFloat()*0.5;
+		double vfov = p.fov*.5;
 		double hfov = atan(Screen.GetAspectRatio()*tan(vfov));
 		let mo = p.camera;
 		Vector3 pp;
@@ -808,9 +841,56 @@ Class SWWMUtility
 		if ( mo is 'PlayerPawn' ) pp = mo.Vec2OffsetZ(0,0,PlayerPawn(mo).player.viewz);
 		else pp = mo.Vec3Offset(0,0,mo.CameraHeight);
 		Vector3 sc = level.SphericalCoords(pp,a.pos,(mo.angle,mo.pitch));
-		if ( (abs(sc.x) > hfov) && (abs(sc.y) > vfov) ) return false;
+		if ( (abs(sc.x) > hfov) || (abs(sc.y) > vfov) ) return false;
 		if ( (maxdist > 0.) && (sc.z < maxdist) ) return false;
 		return true;
+	}
+
+	static clearscope bool CheatsDisabled( int p = -1 )
+	{
+		if ( cl_blockcheats || ((G_SkillPropertyInt(SKILLP_DisableCheats) || netgame || deathmatch) && !sv_cheats) )
+		{
+			if ( (p != -1) && (p == consoleplayer) )
+			{
+				Console.Printf("\cxSORRY NOTHING\c-");
+				S_StartSound("misc/trombone",CHAN_VOICE,CHANF_UI);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	static clearscope bool IdentifyingDog( Actor a )
+	{
+		if ( a is 'MBFHelperDog' ) return true;
+		// reminder that mark is a terrible person
+		if ( a.GetClassName() == 'GermanDog' ) return true;
+		if ( a.GetClassName() == '64HellHound' ) return true;
+		// more dogs will be added as found
+		// because all dogs must be pet
+		return false;
+	}
+
+	static clearscope bool IdentifyingCaco( Actor a )
+	{
+		if ( a is 'DeadCacodemon' ) return false;
+		if ( a is 'Cacodemon' ) return true;
+		if ( a.Species == 'RLCacodemon' ) return true; // DRLA
+		if ( a.Species == 'Caco' ) return true; // CH
+		return false;
+	}
+
+	// Друг
+	static clearscope bool IdentifyingDrug( Actor a )
+	{
+		if ( a is 'Beast' ) return true;
+		return false;
+	}
+
+	static clearscope bool IdentifyingDoubleBoi( Actor a )
+	{
+		if ( a is 'Ettin' ) return true;
+		return false;
 	}
 }
 
@@ -830,5 +910,42 @@ Class RadiusDebugSphere : Actor
 	Spawn:
 		XZW1 A 1 BRIGHT A_FadeOut();
 		Wait;
+	}
+}
+
+Class ShinemapDebugSphere : Actor
+{
+	override bool Used( Actor user )
+	{
+		if ( CurState.NextState )
+			SetState(CurState.NextState);
+		else SetState(SpawnState);
+		return true;
+	}
+	override void Tick() {}
+	Default
+	{
+		RenderStyle "Add";
+		Radius 16;
+		Height 48;
+	}
+	States
+	{
+	Spawn:
+		XZW1 A -1 Bright NoDelay A_SetRenderStyle(1.,STYLE_Add);
+		XZW1 B -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 C -1 Bright A_SetRenderStyle(1.,STYLE_Add);
+		XZW1 D -1 Bright A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 E -1 A_SetRenderStyle(1.,STYLE_Add);
+		XZW1 F -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 G -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 H -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 I -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 J -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 K -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 L -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 M -1 A_SetRenderStyle(1.,STYLE_Normal);
+		XZW1 N -1 A_SetRenderStyle(1.,STYLE_Normal);
+		Loop;
 	}
 }

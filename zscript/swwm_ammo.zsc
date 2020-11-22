@@ -720,6 +720,7 @@ Class GoldShell : Ammo
 	action void A_GoldShellTrail()
 	{
 		if ( Random[Goldy](0,2) ) return;
+		if ( !players[consoleplayer].Camera.CheckSight(self,SF_IGNOREVISIBILITY|SF_IGNOREWATERBOUNDARY) ) return;
 		Spawn("GoldShellSparkle",Vec3Offset(FRandom[Goldy](-2,2),FRandom[Goldy](-2,2),FRandom[Goldy](10,18)));
 	}
 
@@ -1293,6 +1294,7 @@ Class CandyGunSpares : Ammo
 		Inventory.Icon "graphics/HUD/Icons/W_CandyGun.png";
 		Inventory.Amount 1;
 		Inventory.MaxAmount 4;
+		Ammo.BackpackAmount 0;
 		Ammo.BackpackMaxAmount 4;
 	}
 }
@@ -1495,8 +1497,8 @@ Class FabricatorTier1 : AmmoFabricator
 		Inventory.Icon "graphics/HUD/Icons/I_Fabricator1.png";
 		Inventory.PickupMessage "$T_FABRICATOR1";
 		Inventory.MaxAmount 20;
-		AmmoFabricator.Budget 5000;
-		AmmoFabricator.PerType 2;
+		AmmoFabricator.Budget 3000;
+		AmmoFabricator.PerType 1;
 		AmmoFabricator.MaxUnitPrice 2500;
 	}
 }
@@ -1511,8 +1513,8 @@ Class FabricatorTier2 : AmmoFabricator
 		Inventory.PickupMessage "$T_FABRICATOR2";
 		Inventory.MaxAmount 15;
 		AmmoFabricator.Budget 15000;
-		AmmoFabricator.PerType 4;
-		AmmoFabricator.MaxUnitPrice 10000;
+		AmmoFabricator.PerType 2;
+		AmmoFabricator.MaxUnitPrice 12000;
 	}
 }
 Class FabricatorTier3 : AmmoFabricator
@@ -1525,8 +1527,8 @@ Class FabricatorTier3 : AmmoFabricator
 		Inventory.Icon "graphics/HUD/Icons/I_Fabricator3.png";
 		Inventory.PickupMessage "$T_FABRICATOR3";
 		Inventory.MaxAmount 10;
-		AmmoFabricator.Budget 150000;
-		AmmoFabricator.PerType 8;
+		AmmoFabricator.Budget 80000;
+		AmmoFabricator.PerType 4;
 		AmmoFabricator.MaxUnitPrice 80000;
 	}
 }
@@ -1540,7 +1542,7 @@ Class FabricatorTier4 : AmmoFabricator
 		Inventory.MaxAmount 5;
 		AmmoFabricator.Budget int.max;
 		AmmoFabricator.PerType int.max;
-		AmmoFabricator.MaxUnitPrice int.max;
+		AmmoFabricator.MaxUnitPrice 1000000;
 		-INVENTORY.AUTOACTIVATE;
 	}
 }

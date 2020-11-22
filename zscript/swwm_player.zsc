@@ -80,6 +80,7 @@ Class Demolitionist : PlayerPawn
 		DamageFactor "Drowning", 0.;
 		DamageFactor "Poison", 0.;
 		DamageFactor "PoisonCloud", 0.;
+		DamageFactor "Falling", 0.;
 		Demolitionist.DashFuel 240.;
 		+NOBLOOD;
 		+DONTGIB;
@@ -347,7 +348,7 @@ Class Demolitionist : PlayerPawn
 		if ( dashboost < .2 ) dashboost = 0.;
 		else
 		{
-			if ( swwm_extraalert ) A_AlertMonsters(800);
+			if ( swwm_extraalert ) A_AlertMonsters(swwm_uncapalert?0:800);
 			dashboost *= (player.cmd.buttons&BT_USER2)?.9:.1;
 		}
 		mystats.fuelusage += dashfuel-max(0.,dashfuel-dashboost);
@@ -364,7 +365,7 @@ Class Demolitionist : PlayerPawn
 		if ( dashboost < .2 ) dashboost = 0.;
 		else
 		{
-			if ( swwm_extraalert ) A_AlertMonsters(800);
+			if ( swwm_extraalert ) A_AlertMonsters(swwm_uncapalert?0:800);
 			dashboost *= (player.cmd.buttons&BT_JUMP)?.95:.4;
 			last_boost = level.maptime+1;
 		}
@@ -400,7 +401,7 @@ Class Demolitionist : PlayerPawn
 		Sector headregion = null;
 		if ( CurSector.moreflags&Sector.SECMF_UNDERWATER ) // check underwater sector
 			headregion = CurSector;
-		else if ( CurSector.heightsec ) // check height transfer
+		else if ( CurSector.heightsec && (Cursector.heightsec.moreflags&Sector.SECMF_UNDERWATER) ) // check height transfer
 		{
 			let hsec = CurSector.heightsec;
 			double fh = hsec.floorplane.ZAtPoint(pos.xy);
@@ -422,9 +423,7 @@ Class Demolitionist : PlayerPawn
 				double ff_top = ff.top.ZAtPoint(pos.xy);
 				if ( (ff_top <= pos.z) || (ff_bottom > centerpos.z) ) continue;
 				if ( headpos.z <= ff_top )
-				{
 					headregion = ff.model;
-				}
 				break;
 			}
 		}
@@ -509,7 +508,7 @@ Class Demolitionist : PlayerPawn
 		}
 		// don't do inertial sway when in 6dof mode, causes issues
 		if ( !fly6dof ) fly6dof = CVar.GetCVar('swwm_fly6dof',players[consoleplayer]);
-		if ( !fly6dof.GetBool() || !((waterlevel < 2) && (bFly || bFlyCheat) && !(player.cheats&CF_NOCLIP2)) )
+		if ( !fly6dof.GetBool() || !((waterlevel < 2) && bFly && !bFlyCheat && !(player.cheats&CF_NOCLIP2)) )
 		{
 			cur.x += diffang;
 			cur.y -= diffpitch;
@@ -541,6 +540,10 @@ Class Demolitionist : PlayerPawn
 	override void Tick()
 	{
 		Super.Tick();
+		// can't be poisoned
+		PoisonDurationReceived = 0;
+		PoisonPeriodReceived = 0;
+		PoisonDamageReceived = 0;
 		if ( !player ) return;
 		if ( !selflight )
 		{
@@ -612,7 +615,7 @@ Class Demolitionist : PlayerPawn
 				s.special1 = int(-lastvelz);
 				ReactionTime = 17;
 				A_Stop();
-				A_AlertMonsters(2500);
+				A_AlertMonsters(swwm_uncapalert?0:2500);
 				if ( player == players[consoleplayer] )
 				{
 					A_StartSound("demolitionist/hardland",CHAN_FOOTSTEP,CHANF_OVERLAP);
@@ -685,7 +688,7 @@ Class Demolitionist : PlayerPawn
 		prevvelz = vel.z;
 		bool isdashing = InStateSequence(CurState,FindState("Dash"));
 		bool isboosting = InStateSequence(CurState,FindState("Jump"));
-		bNOFRICTION = (((waterlevel<2)&&(bFly||bFlyCheat&&!(player.cheats&CF_NOCLIP2)))||isdashing);
+		bNOFRICTION = (((waterlevel<2)&&(bFly&&!bFlyCheat&&!(player.cheats&CF_NOCLIP2)))||isdashing);
 		fuelcooldown = max(0,fuelcooldown-1);
 		dashcooldown = max(0,dashcooldown-1);
 		boostcooldown = max(0,boostcooldown-1);
@@ -735,7 +738,7 @@ Class Demolitionist : PlayerPawn
 				if ( a.bACTLIKEBRIDGE && (diff.z <= -a.Height) ) continue;	// don't bump bridges if hit by above
 				// large monsters will stop the player (unless hit from above if we're going at ground pound speed)
 				A_QuakeEx(4,4,4,10,0,128,"",QF_RELATIVE|QF_SCALEDOWN);
-				A_AlertMonsters(800);
+				A_AlertMonsters(swwm_uncapalert?0:800);
 				A_StartSound("demolitionist/bump",CHAN_DAMAGE,CHANF_OVERLAP);
 				a.A_StartSound("demolitionist/bump",CHAN_DAMAGE,CHANF_OVERLAP);
 				bumptic = gametic+int(20+spd/4.);
@@ -855,7 +858,7 @@ Class Demolitionist : PlayerPawn
 						A_StartSound("demolitionist/bump",CHAN_DAMAGE,CHANF_OVERLAP);
 						bumptic = gametic+int(20+spd/4.);
 						A_QuakeEx(8,8,8,16,0,128,"",QF_RELATIVE|QF_SCALEDOWN);
-						A_AlertMonsters(800);
+						A_AlertMonsters(swwm_uncapalert?0:800);
 						vel *= .2;
 						vel -= dir*(10+(spd*30/mass));
 						vel.z += 5+(spd*(10/mass));
@@ -892,19 +895,22 @@ Class Demolitionist : PlayerPawn
 					// don't bump if we're only grazing it
 					if ( dir dot wallnorm > -.6 )
 						continue;
+					bool buttslam = false;
+					// BUTTSLAM
+					if ( dir dot viewdir < -.3 )
+					{
+						buttslam = true;
+						// leave buttmark
+						A_SprayDecal("ButtMark",172,(cos(angle+90)*2,sin(angle+90)*2,Height*.54),dir);
+						A_SprayDecal("ButtMark",172,(cos(angle-90)*2,sin(angle-90)*2,Height*.54),dir);
+					}
 					if ( raging || swwm_omnibust )
 					{
 						// see if we can bust it
 						let tempme = new("LineTracer"); // gross hack to pass needed data
 						int dmg = int(15+spd*2.5);
 						if ( raging ) dmg *= 8;
-						bool buttslam = false;
-						// BUTTSLAM
-						if ( dir dot viewdir < -.3 )
-						{
-							dmg *= 3;
-							buttslam = true;
-						}
+						if ( buttslam ) dmg *= 3;
 						tempme.Results.HitLine = BlockingLine;
 						tempme.Results.HitType = TRACE_HitWall;
 						tempme.Results.Side = lside;
@@ -945,7 +951,7 @@ Class Demolitionist : PlayerPawn
 					A_StartSound("demolitionist/bump",CHAN_DAMAGE,CHANF_OVERLAP);
 					bumptic = gametic+int(20+spd/4.);
 					A_QuakeEx(8,8,8,16,0,128,"",QF_RELATIVE|QF_SCALEDOWN);
-					A_AlertMonsters(800);
+					A_AlertMonsters(swwm_uncapalert?0:800);
 					vel *= .2;
 					vel -= dir*(10+(spd*30/mass));
 					vel += wallnorm*(10+(spd*50/mass));
@@ -987,9 +993,6 @@ Class Demolitionist : PlayerPawn
 		// no damage whatsoever
 		if ( scriptedinvul )
 			return 0;
-		// completely nullify non-lethal fall damage
-		if ( (mod == 'Falling') && (damage < TELEFRAG_DAMAGE) )
-			damage = 0;
 		if ( damage <= 0 )
 		{
 			lastdamage = 0;
@@ -1032,7 +1035,7 @@ Class Demolitionist : PlayerPawn
 	}
 	override void CheckPitch()
 	{
-		if ( (waterlevel < 2) && (bFly || bFlyCheat) && !(player.cheats&CF_NOCLIP2) )
+		if ( (waterlevel < 2) && bFly && !bFlyCheat && !(player.cheats&CF_NOCLIP2) )
 			return;	// handled in moveplayer
 		Super.CheckPitch();
 	}
@@ -1040,7 +1043,7 @@ Class Demolitionist : PlayerPawn
 	{
 		if ( InStateSequence(CurState,FindState("Dash")) )
 			player.cmd.upmove = 0;
-		if ( (waterlevel < 2) && (bFly || bFlyCheat) && !(player.cheats&CF_NOCLIP2) )
+		if ( (waterlevel < 2) && bFly && !bFlyCheat && !(player.cheats&CF_NOCLIP2) )
 		{
 			double fs = TweakSpeeds(1.,0.);
 			Vector3 x, y, z;
@@ -1066,9 +1069,17 @@ Class Demolitionist : PlayerPawn
 	}
 	override void MovePlayer()
 	{
+		if ( !player || (player.mo != self) || (player.cheats&(CF_FROZEN|CF_TOTALLYFROZEN)) )
+		{
+			dashboost = 0.;
+			if ( dashsnd ) A_StartSound("demolitionist/jetstop",CHAN_JETPACK);
+			dashsnd = false;
+			Super.MovePlayer();
+			return;
+		}
 		bool isdashing = InStateSequence(CurState,FindState("Dash"));
 		if ( isdashing ) player.cmd.forwardmove = player.cmd.sidemove = 0;
-		if ( (waterlevel < 2) && (bFly || bFlyCheat) && !(player.cheats&CF_NOCLIP2) )
+		if ( (waterlevel < 2) && bFly && !bFlyCheat && !(player.cheats&CF_NOCLIP2) )
 		{
 			player.onground = false;
 			if ( player.turnticks )
@@ -1159,17 +1170,17 @@ Class Demolitionist : PlayerPawn
 			bool crossgap = false;
 			for ( int i=1; i<=4; i++ )	// test up to 4 steps ahead, should be enough for most cases
 			{
-				SetOrigin(Vec3Offset(vel.x,vel.y,vel.z),false);
+				SetOrigin(Vec3Offset(vel.x,vel.y,vel.z),true);
 				if ( floorz < storepos.z ) continue;
 				crossgap = true;
 				break;
 			}
-			SetOrigin(storepos,false);
+			SetOrigin(storepos,true);
 			floorz = storefloorz;
 			if ( !crossgap )
 			{
 				ssup = max(0,(pos.z-floorz));
-				SetOrigin(Vec2OffsetZ(0,0,floorz),true);
+				SetZ(floorz);
 				lastground = player.onground = true;
 			}
 		}
@@ -1266,7 +1277,7 @@ Class Demolitionist : PlayerPawn
 			}
 			if ( player.crouchoffset ) player.crouching = 1;
 			else if ( waterlevel >= 2 ) vel.z = 4*Speed;
-			else if ( (waterlevel < 2) && (bFly || bFlyCheat) && !(player.cheats&CF_NOCLIP2) ) return;
+			else if ( (waterlevel < 2) && bFly && !bFlyCheat && !(player.cheats&CF_NOCLIP2) ) return;
 			else if ( bNoGravity ) vel.z = 3;
 			else if ( level.IsJumpingAllowed()
 				&& ((player.onground && (player.jumptics == 0))
@@ -1401,7 +1412,7 @@ Class Demolitionist : PlayerPawn
 					s.special1 = 30;
 					ReactionTime = 17;
 					A_Stop();
-					A_AlertMonsters(2500);
+					A_AlertMonsters(swwm_uncapalert?0:2500);
 					if ( player == players[consoleplayer] )
 					{
 						A_StartSound("demolitionist/hardland",CHAN_FOOTSTEP,CHANF_OVERLAP);
@@ -1594,6 +1605,7 @@ Class Demolitionist : PlayerPawn
 					|| InStateSequence(CurState,FindState("See"))) )
 					SetStateLabel("SeeFast");
 				else if ( InStateSequence(CurState,FindState("Spawn"))
+					|| InStateSequence(CurState,FindState("Float"))
 					|| InStateSequence(CurState,FindState("Turn")) )
 				{
 					SetStateLabel("See");
@@ -1627,6 +1639,26 @@ Class Demolitionist : PlayerPawn
 					SetStateLabel("StartCrouch");
 				else if ( InStateSequence(CurState,FindState("Crouch")) )
 					SetStateLabel("CrouchMove");
+			}
+			else if ( bFlyCheat || (player.cheats&CF_NOCLIP2) )
+			{
+				// Special case, fly cheats don't play a swim animation, only float
+				// (this fixes Demo "swimming" on the library ladder in Spooktober, for example)
+				if ( InStateSequence(CurState,FindState("Spawn"))
+						|| InStateSequence(CurState,FindState("Turn"))
+						|| InStateSequence(CurState,FindState("See"))
+						|| InStateSequence(CurState,FindState("SeeFast"))
+						|| InStateSequence(CurState,FindState("SeeFastLoop"))
+						|| InStateSequence(CurState,FindState("SeeFastEnd"))
+						|| InStateSequence(CurState,FindState("Jump"))
+						|| InStateSequence(CurState,FindState("Fall"))
+						|| InStateSequence(CurState,FindState("FallLoop"))
+						|| InStateSequence(CurState,FindState("Swim"))
+						|| InStateSequence(CurState,FindState("SwimLoop")) )
+					SetStateLabel("Float");
+				else if ( InStateSequence(CurState,FindState("Crouch"))
+					|| InStateSequence(CurState,FindState("CrouchMove")) )
+					SetStateLabel("EndCrouch");
 			}
 			else
 			{
@@ -1828,7 +1860,7 @@ Class Demolitionist : PlayerPawn
 		else
 		{
 			A_StartSound("demolitionist/walk",CHAN_FOOTSTEP,CHANF_OVERLAP,vol*.5);
-			let b = Spawn("SmolInvisibleSplasher",level.Vec3Offset(pos,(RotateVector((0,yofs*.25*radius),angle),0)));
+			let b = Spawn("InvisibleSplasher",level.Vec3Offset(pos,(RotateVector((0,yofs*.25*radius),angle),0)));
 			b.A_CheckTerrain();
 		}
 	}
@@ -1845,9 +1877,7 @@ Class Demolitionist : PlayerPawn
 	bool FastCheck( bool notfast = false )
 	{
 		if ( !player ) return false;
-		bool rslt = max(abs(player.cmd.forwardmove),abs(player.cmd.sidemove))>6400;
-		// FIXME easier method - uncomment on new GZDoom release
-		// bool rslt = player.cmd.buttons&BT_RUN;
+		bool rslt = player.cmd.buttons&BT_RUN;
 		if ( notfast ) rslt = !rslt;
 		return rslt;
 	}
@@ -1915,8 +1945,7 @@ Class Demolitionist : PlayerPawn
 		// we need the crouch button state to be preserved for other functions
 		if ( wascrouching ) player.cmd.buttons |= BT_CROUCH;
 	}
-	// FIXME requires PR #1169 - uncomment on next GZDoom release
-	/*override void Travelled()
+	override void Travelled()
 	{
 		// reinitialize
 		dashfuel = default.dashfuel;
@@ -1936,9 +1965,8 @@ Class Demolitionist : PlayerPawn
 			player.PendingWeapon = SWWMGesture(player.ReadyWeapon).formerweapon;
 			player.SetPSprite(PSP_WEAPON,player.ReadyWeapon.ResolveState("Deselect"));
 		}
-	}*/
-	// FIXME requires PR #1173 - uncomment on next GZDoom release
-	/*override bool PreTeleport( Vector3 destpos, double destangle, int flags )
+	}
+	override bool PreTeleport( Vector3 destpos, double destangle, int flags )
 	{
 		// store old pos
 		pretelepos = pos;
@@ -1968,7 +1996,7 @@ Class Demolitionist : PlayerPawn
 		let l = SWWMLamp(FindInventory("SWWMLamp"));
 		if ( l && l.thelamp )
 			CompanionLamp(l.thelamp).justteleport = true;
-	}*/
+	}
 	States
 	{
 	Spawn:
@@ -2598,6 +2626,9 @@ Class ReviveCooldown : Powerup
 // not an actual light, just handles the attach/detach
 Class DemolitionistSelfLight : Actor
 {
+	bool oldactive;
+	bool oldglow;
+
 	Default
 	{
 		+NOGRAVITY;
@@ -2623,14 +2654,16 @@ Class DemolitionistSelfLight : Actor
 			Destroy();
 			return;
 		}
-		if ( !activelight() )
-			target.A_RemoveLight('DemoSelfLight');
-		else if ( activelight() )
+		bool curactive = activelight();
+		if ( curactive && !oldactive )
 			target.A_AttachLight('DemoSelfLight',DynamicLight.PointLight,Color(56,72,88),200,0,DynamicLight.LF_DONTLIGHTSELF|DynamicLight.LF_ATTENUATE|DynamicLight.LF_SPOT,(12,0,target.player?(target.player.viewz-target.pos.z):(target.height*.93)),0,30,90,target.pitch);
-		if ( target.bINVISIBLE || (target.alpha <= double.epsilon) )
-			target.A_RemoveLight('DemoSelfLight2');
-		else
-			target.A_AttachLight('DemoSelfLight2',DynamicLight.PointLight,Color(32,48,24),80,0,DynamicLight.LF_DONTLIGHTSELF|DynamicLight.LF_ATTENUATE,(0,0,target.height/2));
+		else if ( !curactive && oldactive )
+			target.A_RemoveLight('DemoSelfLight');
+		oldactive = curactive;
+		bool curglow = !(target.bINVISIBLE||(target.alpha <= double.epsilon));
+		if ( curglow && !oldglow ) target.A_AttachLight('DemoSelfLight2',DynamicLight.PointLight,Color(32,48,24),80,0,DynamicLight.LF_DONTLIGHTSELF|DynamicLight.LF_ATTENUATE,(0,0,target.height/2));
+		else if ( !curglow && oldglow ) target.A_RemoveLight('DemoSelfLight2');
+		oldglow = curglow;
 	}
 }
 
@@ -3003,7 +3036,7 @@ Class HeadpatTracker : Actor
 			return;
 		}
 		A_SetSize(target.radius+8,target.height+8);
-		SetOrigin(target.pos,false);
+		if ( pos != target.pos ) SetOrigin(target.pos,false);
 	}
 	override bool Used( Actor user )
 	{
@@ -3012,8 +3045,8 @@ Class HeadpatTracker : Actor
 		if ( user.player.crouchdir == -1 ) return false;	// need to be standing up
 		if ( !user.player.onground ) return false;	// need to be on solid ground
 		// check use range
-		Vector3 diff = level.Vec3Diff(user.pos,target.pos);
-		if ( (diff.z < -target.height*.5) || (diff.z > user.height*.5) ) return false;
+		Vector3 diff = level.Vec3Diff(user.Vec2OffsetZ(0,0,user.player.viewz),Vec3Offset(0,0,target.Height));
+		if ( abs(diff.z) > PlayerPawn(user.player.mo).UseRange ) return false;
 		if ( user is 'Demolitionist' )
 		{
 			patter = user;
@@ -3145,7 +3178,7 @@ Class SWWMGesture : SWWMWeapon
 			}
 			if ( pt.target.GiveBody(healamt,pt.target.GetSpawnHealth()) )
 			{
-				SWWMScoreObj.Spawn(healamt,pt.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+target.Height/2),Font.CR_BLUE);
+				SWWMScoreObj.Spawn(healamt,pt.Vec3Offset(FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8),FRandom[ScoreBits](-8,8)+pt.target.Height/2),Font.CR_BLUE);
 				SWWMHandler.DoFlash(pt.target,Color(32,224,128,255),10);
 			}
 		}
@@ -3177,6 +3210,14 @@ Class SWWMGesture : SWWMWeapon
 				{
 					t.bCOUNTKILL = false;
 					level.total_monsters--;
+				}
+				if ( t.special && !(t.ActivationType&THINGSPEC_NoDeathSpecial) )
+				{
+					Actor whomst = level.actownspecial?t:self;
+					if ( t.ActivationType&THINGSPEC_ThingActs ) whomst = t;
+					else if ( t.ActivationType&THINGSPEC_TriggerActs ) whomst = self;
+					level.ExecuteSpecial(t.special,whomst,null,false,t.args[0],t.args[1],t.args[2],t.args[3],t.args[4]);
+					t.special = 0;
 				}
 				t.bFRIENDLY = true;
 				if ( deathmatch )

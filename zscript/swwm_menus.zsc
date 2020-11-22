@@ -1,0 +1,565 @@
+// Menu stuff
+
+// voice selector
+Class OptionMenuItemSWWMVoiceOption : OptionMenuItemOptionBase
+{
+	CVar mCVar;
+	Array<String> types;
+
+	OptionMenuItemSWWMVoiceOption Init( String label, Name command, CVar graycheck = null, int center = 0 )
+	{
+		Super.Init(label,command,'',graycheck,center);
+		mCVar = CVar.FindCVar(mAction);
+		int lmp;
+		for ( lmp = Wads.FindLump("swwmvoicepack.txt"); lmp > 0; lmp = Wads.FindLump("swwmvoicepack.txt",lmp+1) )
+		{
+			Array<String> lst;
+			lst.Clear();
+			String dat = Wads.ReadLump(lmp);
+			dat.Split(lst,"\n",0);
+			for ( int i=0; i<lst.Size(); i++ )
+			{
+				if ( (lst[i].Length() <= 0) || (lst[i].GetNextCodePoint(0) == 0) || (lst[i].Left(1) == "\n") || (lst[i].Left(1) == "#") ) continue;
+				types.Push(lst[i]);
+			}
+		}
+		return self;
+	}
+
+	override bool SetString( int i, String newtext )
+	{
+		if ( i == OP_VALUES )
+		{
+			int cnt = types.Size();
+			if ( cnt >= 0 )
+			{
+				mValues = newtext;
+				int s = GetSelection();
+				if ( (s >= cnt) || (s < 0) ) s = 0;
+				SetSelection(s);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	override int GetSelection()
+	{
+		int Selection = -1;
+		int cnt = types.Size();
+		if ( (cnt > 0) && mCVar )
+		{
+			String cv = mCVar.GetString();
+			for( int i=0; i<cnt; i++ )
+			{
+				if ( cv ~== types[i] )
+				{
+					Selection = i;
+					break;
+				}
+			}
+		}
+		return Selection;
+	}
+
+	override void SetSelection( int Selection )
+	{
+		int cnt = types.Size();
+		if ( (cnt > 0) && mCVar )
+			mCVar.SetString(types[Selection]);
+	}
+
+	override int Draw( OptionMenuDescriptor desc, int y, int indent, bool selected )
+	{
+		if ( mCenter ) indent = (screen.GetWidth()/2);
+		drawLabel(indent,y,selected?OptionMenuSettings.mFontColorSelection:OptionMenuSettings.mFontColor,isGrayed());
+		int Selection = GetSelection();
+		String loc;
+		if ( Selection == -1 ) loc = "Unknown";
+		else
+		{
+			String uptxt = types[Selection];
+			uptxt.MakeUpper();
+			String str = String.Format("SWWM_VOICENAME_%s",uptxt);
+			loc = StringTable.Localize(str,false);
+			if ( str == loc ) loc = types[Selection];
+		}
+		drawValue(indent,y,OptionMenuSettings.mFontColorValue,loc,isGrayed());
+		return indent;
+	}
+
+	override bool MenuEvent( int mkey, bool fromcontroller )
+	{
+		int cnt = types.Size();
+		if ( cnt > 0 )
+		{
+			int Selection = GetSelection();
+			if ( mkey == Menu.MKEY_Left )
+			{
+				if ( Selection == -1 ) Selection = 0;
+				else if ( --Selection < 0 ) Selection = cnt-1;
+			}
+			else if ( (mkey == Menu.MKEY_Right) || (mkey == Menu.MKEY_Enter) )
+			{
+				if ( ++Selection >= cnt ) Selection = 0;
+			}
+			else return OptionMenuItem.MenuEvent(mkey,fromcontroller);
+			SetSelection(Selection);
+			Menu.MenuSound("menu/change");
+		}
+		else return OptionMenuItem.MenuEvent(mkey,fromcontroller);
+		return true;
+	}
+}
+
+// option menu /w tooltips
+Class SWWMOptionMenu : OptionMenu
+{
+	private String ttip;
+	transient CVar lang;
+	transient Font TewiFont, MPlusFont;
+
+	override void Init( Menu parent, OptionMenuDescriptor desc )
+	{
+		Super.Init(parent,desc);
+		// remove voicepack selector if there's only one voice
+		for ( int i=0; i<mDesc.mItems.Size(); i++ )
+		{
+			if ( !(mDesc.mItems[i] is 'OptionMenuItemSWWMVoiceOption')
+				|| (OptionMenuItemSWWMVoiceOption(mDesc.mItems[i]).types.Size() > 1) ) continue;
+			mDesc.mItems[i].Destroy();
+			mDesc.mItems.Delete(i);
+			if ( mDesc.mSelectedItem > i ) mDesc.mSelectedItem--;
+			i--;
+		}
+	}
+	override void Ticker()
+	{
+		Super.Ticker();
+		// fetch the tooltip for whatever's selected (if any)
+		if ( mDesc.mSelectedItem == -1 ) return;
+		String mcvar = mDesc.mItems[mDesc.mSelectedItem].GetAction();
+		mcvar.Replace(" ","_");	// need to strip whitespace for command actions
+		String locstr = String.Format("TOOLTIP_%s",mcvar);
+		ttip = StringTable.Localize(locstr,false);
+		if ( ttip == locstr ) ttip = "";
+	}
+	override void Drawer()
+	{
+		Super.Drawer();
+		if ( ttip == "" ) return;
+		// re-evaluate y to check where the cursor is
+		int cy = 0;
+		int y = mDesc.mPosition;
+		if ( y <= 0 )
+		{
+			let font = generic_ui||!mDesc.mFont?NewSmallFont:mDesc.mFont;
+			if ( font && (mDesc.mTitle.Length() > 0) )
+				y = -y+font.GetHeight();
+			else y = -y;
+		}
+		int fontheight = OptionMenuSettings.mLinespacing*CleanYfac_1;
+		y *= CleanYfac_1;
+		int lastrow = Screen.GetHeight()-OptionHeight()*CleanYfac_1;
+		for ( int i=0; ((i < mDesc.mItems.Size()) && (y <= lastrow)); i++ )
+		{
+			// Don't scroll the uppermost items
+			if ( i == mDesc.mScrollTop )
+			{
+				i += mDesc.mScrollPos;
+				if ( i >= mDesc.mItems.Size() ) break;	// skipped beyond end of menu
+			}
+			y += fontheight;
+			if ( mDesc.mSelectedItem == i )
+			{
+				cy = y;
+				break;
+			}
+		}
+		if ( !TewiFont ) TewiFont = Font.GetFont('Tewi');
+		if ( !MPlusFont ) MPlusFont = Font.GetFont('MPlus');
+		if ( !lang ) lang = CVar.GetCVar('language',players[consoleplayer]);
+		Font fnt = TewiFont;
+		if ( lang.GetString() ~== "jp" ) fnt = MPlusFont;
+		let lines = fnt.BreakLines(ttip,CleanWidth_1-8);
+		int height = (8+fnt.GetHeight()*lines.Count())*CleanYFac_1;
+		// draw at the bottom unless the selected option could is covered by the tooltip
+		int ypos = Screen.GetHeight()-height;
+		if ( cy >= ypos ) ypos = 0;
+		Screen.Dim("Black",.75,0,ypos,Screen.GetWidth(),height);
+		ypos += 4*CleanYFac_1;
+		for ( int i=0; i<lines.Count(); i++ )
+		{
+			Screen.DrawText(fnt,Font.CR_WHITE,4*CleanXFac_1,ypos,lines.StringAt(i),DTA_CleanNoMove_1,true);
+			ypos += fnt.GetHeight()*CleanYFac_1;
+		}
+	}
+}
+
+// main menu w/ version info
+Class SWWMMainMenu : ListMenu
+{
+	transient Font TewiFont;
+
+	override void Drawer()
+	{
+		Super.Drawer();
+		int xx, yy;
+		if ( !TewiFont ) TewiFont = Font.GetFont('TewiShaded');
+		String str = StringTable.Localize("$SWWM_MODVER");
+		int width = TewiFont.StringWidth(str)+8;
+		int height = TewiFont.GetHeight()+4;
+		xx = CleanWidth_1-width;
+		yy = CleanHeight_1-height;
+		Screen.Dim("Black",.75,int(xx*CleanXFac_1),int(yy*CleanYFac_1),int(width*CleanXFac_1),int(height*CleanYFac_1));
+		Screen.DrawText(TewiFont,Font.CR_GOLD,(xx+4)*CleanXFac_1,(yy+2)*CleanYFac_1,str,DTA_CleanNoMove_1,true);
+	}
+}
+
+// skill/episode menu hack
+Class SWWMBigMenuHack : ListMenu
+{
+	override void Init( Menu parent, ListMenuDescriptor desc )
+	{
+		Super.Init(parent,desc);
+		// replace text/patch items with our own
+		for ( int i=0; i<mDesc.mItems.Size(); i++ )
+		{
+			let itm = mDesc.mItems[i];
+			if ( itm.GetClass() == 'ListMenuItemTextItem' )
+			{
+				let ti = ListMenuItemTextItem(itm);
+				let rep = new("ListMenuItemSWWMTextItemM");
+				Name c;
+				int p;
+				[c, p] = ti.GetAction();
+				rep.InitDirect(ti.GetX(),ti.GetY(),mDesc.mLinespacing,ti.mHotkey,ti.mText,ti.mFont,ti.mColor,ti.mColorSelected,c,p);
+				mDesc.mItems[i] = rep;
+				ti.Destroy();
+			}
+			else if ( itm.GetClass() == 'ListMenuItemPatchItem' )
+			{
+				let pi = ListMenuItemPatchItem(itm);
+				let rep = new("ListMenuItemSWWMPatchItemM");
+				Name c;
+				int p;
+				[c, p] = pi.GetAction();
+				rep.InitDirect(pi.GetX(),pi.GetY(),mDesc.mLinespacing,pi.mHotkey,pi.mTexture,c,p);
+				mDesc.mItems[i] = rep;
+				pi.Destroy();
+			}
+		}
+	}
+}
+
+Class ListMenuItemSWWMStaticTextM : ListMenuItem
+{
+	String mText;
+	Font mFont;
+	int mColor;
+
+	void Init( ListMenuDescriptor desc, double x, double y, String text, int color = -1 )
+	{
+		Super.Init(x,y);
+		mText = text;
+		mFont = desc.mFont;
+		mColor = (color>=0)?color:desc.mFontColor;
+	}
+
+	void InitDirect( double x, double y, String text, Font font, int color = Font.CR_UNTRANSLATED )
+	{
+		Super.Init(x,y);
+		mText = text;
+		mFont = font;
+		mColor = color;
+	}
+
+	override void Draw( bool selected, ListMenuDescriptor desc )
+	{
+		if ( mText.Length() == 0 ) return;
+		String text = Stringtable.Localize(mText);
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		if ( w == ListMenuDescriptor.CleanScale )
+		{
+			double x = (320-mFont.StringWidth(text))/2;
+			Screen.DrawText(mFont,mColor,x,abs(mYpos),text,(mYpos<0)?DTA_CleanTop:DTA_Clean,true);
+		}
+		else
+		{
+			double x = (w-mFont.StringWidth(text))/2;
+			Screen.DrawText(mFont,mColor,x,abs(mYpos),text,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43);
+		}
+	}
+}
+
+// scaled SWWM GZ logo
+class ListMenuItemSWWMLogo : ListMenuItem
+{
+	TextureID mTexture;
+
+	void Init( ListMenuDescriptor desc, TextureID patch )
+	{
+		Super.Init(desc.mXpos,desc.mYpos);
+		mTexture = patch;
+	}
+
+	override void Draw( bool selected, ListMenuDescriptor desc )
+	{
+		if ( !mTexture.Exists() )
+			return;
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		Vector2 vs = TexMan.GetScaledSize(mTexture);
+		double x;
+		if ( w == ListMenuDescriptor.CleanScale )
+		{
+			x = (320-vs.x)/2;
+			Screen.DrawTexture(mTexture,false,x,-48,DTA_Clean,true);
+		}
+		else
+		{
+			x = (w-vs.x)/2;
+			Screen.DrawTexture(mTexture,false,x,-48,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43);
+		}
+	}
+}
+
+// message box that enforces newsmallfont and changes text color to match menus
+Class SWWMMessageBox : MessageBoxMenu
+{
+	override void Init( Menu parent, String message, int messagemode, bool playsound, Name cmd, voidptr native_handler )
+	{
+		Super.Init(parent,message,messagemode,playsound,cmd,native_handler);
+		textFont = arrowFont = newsmallfont;
+		destWidth = CleanWidth;
+		destHeight = CleanHeight;
+		selector = "▸";
+		int mr1 = destWidth/2+10+textFont.StringWidth(Stringtable.Localize("$TXT_YES"));
+		int mr2 = destWidth/2+10+textFont.StringWidth(Stringtable.Localize("$TXT_NO"));
+		mMouseRight = max(mr1,mr2);
+		mMessage = textFont.BreakLines(Stringtable.Localize(message),int(300/NotifyFontScale));
+	}
+
+	override void Drawer()
+	{
+		let fontheight = textFont.GetHeight()*NotifyFontScale;
+		double y = destHeight/2;
+		int c = mMessage.Count();
+		y -= c*fontHeight/2;
+		for ( int i=0; i<c; i++ )
+		{
+			Screen.DrawText(textFont,OptionMenuSettings.mFontColorValue,destWidth/2-mMessage.StringWidth(i)*NotifyFontScale/2,y,mMessage.StringAt(i),DTA_VirtualWidth,destWidth, DTA_VirtualHeight,destHeight,DTA_KeepRatio,true,DTA_ScaleX,NotifyFontScale,DTA_ScaleY,NotifyFontScale);
+			y += fontheight;
+		}
+		if ( mMessageMode != 0 ) return;
+		y += fontheight;
+		mMouseY = int(y);
+		Screen.DrawText(textFont,messageSelection==0?OptionMenuSettings.mFontColorSelection:OptionMenuSettings.mFontColor,destWidth/2,y,Stringtable.Localize("$TXT_YES"), DTA_VirtualWidth,destWidth,DTA_VirtualHeight,destHeight,DTA_KeepRatio,true,DTA_ScaleX,NotifyFontScale,DTA_ScaleY,NotifyFontScale);
+		Screen.DrawText(textFont,messageSelection==1?OptionMenuSettings.mFontColorSelection:OptionMenuSettings.mFontColor,destWidth/2,y+fontheight, Stringtable.Localize("$TXT_NO"),DTA_VirtualWidth,destWidth,DTA_VirtualHeight,destHeight,DTA_KeepRatio,true,DTA_ScaleX,NotifyFontScale,DTA_ScaleY,NotifyFontScale);
+		if ( messageSelection < 0 ) return;
+		if ( (MenuTime()%8) < 6 )
+			Screen.DrawText(arrowFont,OptionMenuSettings.mFontColorSelection,destWidth/2-11,y+fontheight*messageSelection,selector,DTA_VirtualWidth,destWidth, DTA_VirtualHeight,destHeight,DTA_KeepRatio,true);
+	}
+}
+
+// main menu item with wiggly text when selected and Demo face selectors on both sides
+class ListMenuItemSWWMTextItemM : ListMenuItemSelectable
+{
+	String mText;
+	Font mFont;
+	int mColor;
+	int mColorSelected;
+
+	void Init( ListMenuDescriptor desc, String text, String hotkey, Name child, int param = 0 )
+	{
+		Super.Init(desc.mXpos,desc.mYpos,desc.mLinespacing,child,param);
+		mText = text;
+		mFont = desc.mFont;
+		mColor = desc.mFontColor;
+		mColorSelected = desc.mFontcolor2;
+		mHotkey = hotkey.GetNextCodePoint(0);
+	}
+
+	void InitDirect( double x, double y, int height, int hotkey, String text, Font font, int color, int color2, Name child, int param = 0 )
+	{
+		Super.Init(x,y,height,child,param);
+		mText = text;
+		mFont = font;
+		mColor = color;
+		mColorSelected = color2;
+		mHotkey = hotkey;
+	}
+
+	override int GetWidth()
+	{
+		return max(1,mFont.StringWidth(StringTable.Localize(mText)));
+	}
+
+	override void Draw( bool selected, ListMenuDescriptor desc )
+	{
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		String text = StringTable.Localize(mText);
+		double x;
+		// centered
+		if ( w == ListMenuDescriptor.CleanScale ) x = (320-mFont.StringWidth(text))/2;
+		else x = (w-mFont.StringWidth(text))/2;
+		double y = mYPos-12; // text needs to be offset up for some reason, otherwise doesn't match mouse selection bounds
+		if ( selected )
+		{
+			double xx = x;
+			SWWMUtility.StripColor(text);
+			int tlen = text.CodePointCount();
+			if ( w == ListMenuDescriptor.CleanScale )
+			{
+				for ( int i=0, pos=0; i<tlen; i++ )
+				{
+					int ch;
+					[ch, pos] = text.GetNextCodePoint(pos);
+					double yy = y+4*sin(32*i+8*Menu.MenuTime());
+					Screen.DrawChar(mFont,Font.CR_SAPPHIRE,xx,yy,ch,DTA_Clean,true);
+					xx += mFont.GetCharWidth(ch)-2;	// account for menu font kerning
+				}
+			}
+			else
+			{
+				for ( int i=0, pos=0; i<tlen; i++ )
+				{
+					int ch;
+					[ch, pos] = text.GetNextCodePoint(pos);
+					double yy = y+4*sin(32*i+8*Menu.MenuTime());
+					Screen.DrawChar(mFont,Font.CR_SAPPHIRE,xx,yy,ch,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43);
+					xx += mFont.GetCharWidth(ch)-2;	// account for menu font kerning
+				}
+			}
+		}
+		else
+		{
+			if ( w == ListMenuDescriptor.CleanScale )
+				Screen.DrawText(mFont,Font.CR_WHITE,x,y,text,DTA_Clean,true);
+			else
+				Screen.DrawText(mFont,Font.CR_WHITE,x,y,text,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43);
+		}
+	}
+
+	override void DrawSelector( double xofs, double yofs, TextureID tex, ListMenuDescriptor desc )
+	{
+		if ( tex.isNull() ) return;
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		double y = (mYpos+mFont.GetHeight()/2)-10;
+		if ( w == ListMenuDescriptor.CleanScale )
+		{
+			double x = (320-GetWidth())/2;
+			Screen.DrawTexture(tex,true,x+xofs,y+yofs,DTA_Clean,true,DTA_CenterOffset,true,DTA_Rotate,15.*sin(8*Menu.MenuTime()));
+			x = (320+GetWidth())/2;
+			Screen.DrawTexture(tex,true,x-xofs,y+yofs,DTA_Clean,true,DTA_CenterOffset,true,DTA_Rotate,-15.*sin(8*Menu.MenuTime()));
+		}
+		else
+		{
+			double x = (w-GetWidth())/2;
+			Screen.DrawTexture(tex,true,x+xofs,y+yofs,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43,DTA_CenterOffset,true,DTA_Rotate,15.*sin(8*Menu.MenuTime()));
+			x = (w+GetWidth())/2;
+			Screen.DrawTexture(tex,true,x-xofs,y+yofs,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43,DTA_CenterOffset,true,DTA_Rotate,-15.*sin(8*Menu.MenuTime()));
+		}
+	}
+
+}
+
+// for compat with non-text episodes
+Class ListMenuItemSWWMPatchItemM : ListMenuItemSelectable
+{
+	TextureID mTexture;
+
+	void Init( ListMenuDescriptor desc, TextureID patch, String hotkey, Name child, int param = 0 )
+	{
+		Super.Init(desc.mXpos,desc.mYpos,desc.mLinespacing,child,param);
+		mHotkey = hotkey.GetNextCodePoint(0);
+		mTexture = patch;
+	}
+
+	void InitDirect( double x, double y, int height, int hotkey, TextureID patch, Name child, int param = 0 )
+	{
+		Super.Init(x,y,height,child,param);
+		mHotkey = hotkey;
+		mTexture = patch;
+	}
+
+	override int GetWidth()
+	{
+		Vector2 vs = TexMan.GetScaledSize(mTexture);
+		return int(vs.x);
+	}
+
+	override void Draw( bool selected, ListMenuDescriptor desc )
+	{
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		if ( w == ListMenuDescriptor.CleanScale )
+		{
+			double x = (320-GetWidth())/2;
+			Screen.DrawTexture(mTexture,true,x,mYpos,DTA_Clean,true);
+		}
+		else
+		{
+			double x = (w-GetWidth())/2;
+			screen.DrawTexture(mTexture,true,x,mYpos,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43);
+		}
+	}
+
+	override void DrawSelector( double xofs, double yofs, TextureID tex, ListMenuDescriptor desc )
+	{
+		if ( tex.isNull() ) return;
+		int w = desc?desc.DisplayWidth():ListMenuDescriptor.CleanScale;
+		int h = desc?desc.DisplayHeight():-1;
+		Vector2 vs = TexMan.GetScaledSize(mTexture);
+		double y = mYpos+vs.y/2;
+		if ( w == ListMenuDescriptor.CleanScale )
+		{
+			double x = (320-vs.x)/2;
+			Screen.DrawTexture(tex,true,x+xofs,y+yofs,DTA_Clean,true,DTA_CenterOffset,true,DTA_Rotate,15.*sin(8*Menu.MenuTime()));
+			x = (320+vs.x)/2;
+			Screen.DrawTexture(tex,true,x-xofs,y+yofs,DTA_Clean,true,DTA_CenterOffset,true,DTA_Rotate,-15.*sin(8*Menu.MenuTime()));
+		}
+		else
+		{
+			double x = (w-vs.x)/2;
+			Screen.DrawTexture(tex,true,x+xofs,y+yofs,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43,DTA_CenterOffset,true,DTA_Rotate,15.*sin(8*Menu.MenuTime()));
+			x = (w+vs.x)/2;
+			Screen.DrawTexture(tex,true,x-xofs,y+yofs,DTA_VirtualWidth,w,DTA_VirtualHeight,h,DTA_FullscreenScale,FSMode_ScaleToFit43,DTA_CenterOffset,true,DTA_Rotate,-15.*sin(8*Menu.MenuTime()));
+		}
+	}
+}
+
+Class SWWMMenuDelegate : DoomMenuDelegate
+{
+	transient CVar lang;
+	transient Font TewiFont, MPlusFont, SWWMBigFont;
+
+	override int DrawCaption( String title, Font fnt, int y, bool drawit )
+	{
+		// forcibly use our bigfont here
+		// somehow it doesn't get overriden when using PickFont()
+		// most likely because of pointer poopery
+		// could we get a function for fetching a font's name, graf?
+		if ( !SWWMBigFont ) SWWMBigFont = Font.GetFont('SWWMBigFont');
+		return Super.DrawCaption(title,SWWMBigFont,y,drawit);
+	}
+
+	// this doesn't seem to always work?
+	override Font PickFont( Font fnt )
+	{
+		if ( !lang ) lang = CVar.GetCVar('language',players[consoleplayer]);
+		if ( !TewiFont ) TewiFont = Font.GetFont('TewiShaded');
+		if ( !MPlusFont ) MPlusFont = Font.GetFont('MPlusShaded');
+		if ( !SWWMBigFont ) SWWMBigFont = Font.GetFont('SWWMBigFont');
+		if ( (fnt == SmallFont) || (fnt == SmallFont2) || (fnt == AlternativeSmallFont) || (fnt == NewSmallFont) || !fnt )
+		{
+			if ( lang.GetString() ~== "jp" ) return MPlusFont;
+			return TewiFont;
+		}
+		if ( (fnt == BigFont) || (fnt == AlternativeBigFont) || (fnt == OriginalBigFont) || (fnt == IntermissionFont) ) return SWWMBigFont;
+		return fnt;
+	}
+}

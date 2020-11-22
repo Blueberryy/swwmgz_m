@@ -111,7 +111,7 @@ on replaced item, may also come in bundles:
  - **Kinylum saltshot (blue):** Highly volatile shards of **Kinylum** that leave behind a trail of burning plasma. Rare.
  - ***"Fuck your shit"* round (black):** A special home-made incendiary ammo type that only an absolute madman would have come up with. Sets everything on fire (potentially including yourself). Very rare.
  - ***"The ball"* (purple):** A big lead ball, 'nuff said. Somewhat rare.
- - **Golden shell (self-explanatory color):** An extremely rare, but very valuable type. Fires a sabot packed with a very dense, high-grade **Explodium** charge, the shell also contains some gold glitter, but it's just for show. Clearly designed by someone completely insane, and definitely guaranteed to not fail catastrophically and blow up your gun, your hands, your arms, and the rest of your upper body. Unlike the others, this one is only available as a rare drop from boss monsters, and as a rare spawn for chaos/banishment devices in **Heretic** and **Hexen**.
+ - **Golden shell (self-explanatory color):** An extremely rare, but very valuable type. Fires a sabot packed with a very dense, high-grade **Explodium** charge, the shell also contains some gold glitter, but it's just for show. Clearly designed by someone completely insane, and definitely guaranteed to not fail catastrophically and blow up your gun, your hands, your arms, and the rest of your upper body. Unlike the others, this one is only available as a rare drop from powerful monsters (over 1000HP) and bosses. They may also appear in **Chanceboxes**.
 
 ### Wallbuster (slot 4) ~ Replaces SSG, Ethereal Crossbow, Frost Shards
 ![](docimg/wallbuster.png)
@@ -133,7 +133,7 @@ A ludicrously overkill weapon, courtesy of the always-overkill **Blackmann Arms*
 
 People like to nickname it the ***"Ballbuster"***. You'll see why.
 
-### Eviscerator (slot 5) ~ Replaces Chaingun, Dragon Claw, Hammer of Retribution
+### Eviscerator (slot 5) ~ Replaces Chaingun, Dragon Claw, Quietus (hilt)
 ![](docimg/eviscerator.png)
 
 The pleasure of shrapnel spamming. Make hot steaming pain rain upon your enemies.
@@ -151,7 +151,7 @@ This weapon made the **Unreal Engine** cry, so **GZDoom** may suffer a lot too.
 
 Little bundles of fun (in hot lead form) found either as single units (sometimes bunched up) or six-packs. There is no explanation for why they have an **owo** face scribbled on.
 
-### Hellblazer (slot 6) ~ Replaces Rocket Launcher, Phoenix Rod, Firestorm
+### Hellblazer (slot 6) ~ Replaces Rocket Launcher, Phoenix Rod, Hammer of Retribution
 ![](docimg/hellblazer.png)
 
 Another signature weapon of the **SWWM** series. This time in its third and far more improved revision.
@@ -174,7 +174,7 @@ Ammo for the **Hellblazer**, found either as single units or packs. There are fo
  - ***"Ravager"* incendiary bombs:** Wide range, the flames will engulf pretty much everything around itself.
  - ***"Slayer"* warheads:** Frickin' nukes, you better keep your distance, because they are ***STRONG***.
 
-### Biospark Carbine (slot 7) ~ Replaces Plasma Rifle, Hellstaff, Arc of Death
+### Biospark Carbine (slot 7) ~ Replaces Plasma Rifle, Hellstaff, Firestorm
 ![](docimg/biospark.png)
 
 A relic from the olden days of **UnSX**. A potent energy weapon that uses what's best described as *"sentient lightning"*.
@@ -192,7 +192,7 @@ If the beam hits either of the other energy blobs, they will detonate with highl
 
 Ammunition for the Biospark Carbine. They contain a lot of energy, despite the small size.
 
-### Silver Bullet JET (slot 8) ~ Replaces Plasma Rifle, Hellstaff, Quietus (hilt)
+### Silver Bullet JET (slot 8) ~ Replaces Plasma Rifle, Hellstaff, Arc of Death
 ![](docimg/silverbullet.png)
 
 The definitive model of **Blackmann Arms**'s legendary **Silver Bullet** series. A lighter (43kg), lower caliber (1.150) variant of the former 1.350 **BEHEMOTH** model, discontinued due to being seen as too impractical.
@@ -261,7 +261,7 @@ Unlike its previous incarnation in **SWWM Platinum**, this one doesn't have such
 ### Crystal Box
 ![](docimg/ynykronammo.png)
 
-Additional ammo charge for the **Ynykron Artifact**. Contains a rod of polarized **Puronokorokinylum** crystal, highly volatile when heated and stimulated with concentrated light. These don't spawn, so you'll have to get more ammo by finding additional weapon pickups or managing to afford one in the store.
+Additional ammo charge for the **Ynykron Artifact**. Contains a rod of polarized **Puronokorokinylum** crystal, highly volatile when heated and stimulated with concentrated light. These don't spawn in the world, so you'll have to get more ammo by finding additional weapon pickups or managing to afford one in the store, or trying your luck with a **Chancebox**.
 
 ## The Pickups
 ![](docimg/demolitionist_items.png)
@@ -282,12 +282,12 @@ All of these can be carried in your inventory indefinitely before use, except in
 
 +10 health boost, up to a cap of 100 points.
 
-### Health Cube ~ Replaces Medkit, Mystic Urn (Hexen), Quartz Flask (Heretic)
+### Health Cube ~ Replaces Medkit, Quartz Flask
 ![](docimg/cubehealth.png)
 
 +20 health boost, up to a cap of 100 points.
 
-### Refresher ~ Replaces Soulsphere, Mystic Urn (Heretic), Mystic Ambit Incant
+### Refresher ~ Replaces Soulsphere, Mystic Urn
 ![](docimg/refresher.png)
 
 This artifact provides a +100 health boost plus a regeneration effect that heals +10 every 5 seconds, for up to 50 seconds, thus it doubles as a powerup. Its overhealing effects cap at 500 points (including the regen). Once its effects wear out, however, your excess health will gradually settle towards the typical 200 point cap. Unlike other health items, the **Refresher** auto-activates only if you're about to die. This usually prevents such a grim outcome... unless the damage is too high to counter.
@@ -367,7 +367,7 @@ Each of these you pick up increase ammo capacity by half of its base value, stac
 ### Universal Ammo Fabricator ~ Replaces Mana / Krater of Might in Hexen
 ![](docimg/fabricator.png)
 
-Separated into four tiers, they work pretty much like the ammo cubes in **Doom Tournament**, except they try to *"balance"* the total ammo given. The max tier fabricator is the only one capable of producing ammo for superweapons.
+Separated into four tiers, they work pretty much like the ammo cubes in **Doom Tournament**, except they try to *"balance"* the total ammo given. The max tier fabricator is the only one capable of producing ammo for superweapons (excluding the **Ynykron Artifact**).
 
 ### Lamp ~ Replaces Lite-Amp, Torch
 ![](docimg/lamp.png)
@@ -382,61 +382,60 @@ Reveals the entire layout of the map and shows key locations in the HUD. Also al
 ## The Collectibles
 ![](docimg/chancebox.png)
 
-Every now and then you will find these strange ***"Lucky Chance Boxes"*** in secret areas, which you can open by pressing Use. Each of them will provide you with a randomly selected item from a pool of various *"collectibles"*. On pickup, these will give you a nice extra score based on their estimated market price. Some of these collectibles will only appear when you play specific IWADs (or those that go chronologically after them, e.g.: Heretic collectibles appearing in Hexen).
+Every now and then you will find these strange ***"Lucky Chance Boxes"*** in secret areas, which you can open by pressing Use. While some will drop very useful goodies, one among them will provide you instead with a randomly selected item from a pool of various *"collectibles"*. On pickup, these will give you a nice extra score based on their estimated market price. Some of these collectibles will only appear when you play specific IWADs (or those that go chronologically after them, e.g.: Heretic collectibles appearing in Hexen).
 
 ***(Do note that this feature is currently not fully implemented, there may be missing models)***
 
-### NUTATCO™ Chocolate Bar (¥200)
+### NUTATCO™ Chocolate Bar
+![](docimg/nutatcobar.png)
 
-A light snack, said to have a "savage taste".
+A light snack, said to have a "savage taste". The branding was entirely Saya's doing thanks to her position as #1 sponsor of Vestal Foods.
 
-### Frispy™ Tasty Corn Snack (¥500)
+### Frispy™ Tasty Corn Snack
+![](docimg/frispycorn.png)
 
-Saya's favorite barbecue-flavored corn nuts. She snacks on so many bags of these that their tasty scent has stuck to her permanently.
+Saya's favorite barbecue-flavored corn nuts. She snacks on so many bags of these that their tasty scent has stuck to her permanently, becoming a walking advertisement for them. Kirin likes it, at least.
 
-### The Akari Project (¥3000)
+### The Akari Project
+![](docimg/akariproject.png)
 
-Hard cover copy of Saya's famous sci-fi novel about interdimensional travel. Saya has frequently cited it to dab hard on the UAC and their failures.
+A copy of Saya's famous sci-fi novel about interdimensional travel. Saya has frequently cited it to dab hard on the UAC and their failures. The interportal system devised by Saya in 2171 was named after this.
 
-### Meidobot - Love Signals (¥4000)
+### Meidobot - Love Signals
 
-Debut album of Maidbot Miyamoto. Very cute and romantic J-Pop. Yes, it's a CD, and yes, some people still have CD drives out there.
+Debut album of Maidbot Miyamoto. Very cute and romantic J-Pop. Yes, it's a CD, and yes, some people still have CD drives out there. The album is considered a declaration of love to Saya, although it should be noted that this predates Maidbot gaining sentience (not that it makes much of a difference, as her feelings for Saya turned out to be very real).
 
-### Mashiro Plush (¥5000)
+### Mashiro Plush
 
-A plush doll of Saya's favorite moth girl, handcrafted by Nukritas 2xx herself. Potentially cursed, be extra careful when you have a Lämp around.
+A plush doll of Saya's favorite moth girl, handcrafted by Nukritas 2xx herself. Appears to be cursed, potentially putting you in the sights of a very real moth girl.
 
-### Quartz Flask (¥4000) [Heretic]
-
-Ye flask. Contains healing potion, has a taste comparable to cough syrup. Seems to also be popular on Cronos, having been carried over by the Serpent Riders and their armies.
-
-### Demolitionist Plush (¥6400) [Heretic]
-
-A soft and squishy plush doll of you! This became very popular after the events of Doom, with the Demolitionist having defeated the demons and saved Earth.
-
-### Haunted Saya Bean Plush (¥12000) [Heretic]
+### Haunted Saya Bean Plush (Heretic)
 
 Eats your snacks and calls you a horny. Emits a giggle when you squeeze it. Yet another of Nukritas 2xx's little handcrafted dolls. May or may not be really haunted.
 
-### Tyketto's Tome of Power (¥16000) [Heretic]
+### Demolitionist Plush (Heretic)
+![](docimg/demoplush.png)
 
-A book of magic weapon enchantments. Found quite often across the land of Parthoris.
+A soft and squishy plush doll of you! This became very popular after the events of Doom, with the Demolitionist having defeated the demons and saved Earth. Fully articulated, face and tags glow in the dark.
 
-### Toot Froot™ Peach Juice (¥400) [Hexen]
+### Toot Froot™ Peach Juice (Hexen)
+![](docimg/tootfroot.png)
 
-Saya began to stock up on these after her marriage with Kirin, for some unexplained reason. She says the taste reminds her of him.
+Saya began to stock up on these after her marriage with Kirin, for some unexplained reason. She says the taste reminds her of him. Kirin also seems to enjoy drinking them, perhaps a bit too much, in fact.
 
-### Akkouxhei Milk Breads (¥900) [Hexen]
+### Akkouxhei Milk Breads (Hexen)
 
-A tasty treat from Kirin's homeland. These soft and fluffy pastries are so sweet they may be even lethal if consumed in excess.
+A tasty treat from Kirin's homeland. These soft and fluffy pastries are so sweet they may be even lethal if consumed in excess. Saya gave herself a heart attack once after stuffing her face full of them.
 
-### I Married A Cherry Boy Emperor But It Turns Out He's Really Cute In Lingerie!? (¥1600) [Hexen]
+### I Married A Cherry Boy Emperor But It Turns Out He's Really Cute In Lingerie!? (Hexen)
+![](docimg/kirinmanga.png)
 
-A oneshot manga by Saya Miyamoto "based on true events" about a young girl who marries a seemingly pure and innocent emperor with a secret crossdressing hobby.
+A single-volume manga by Saya Miyamoto "based on true events" about a young girl who marries a seemingly pure and innocent emperor with a secret crossdressing hobby.
 
-### Kirin Plush (¥20000) [Hexen]
+### Kirin Plush (Hexen)
+![](docimg/kirinplush.png)
 
-The most adorable and huggable plush doll of the cutest and sweetest emperor. This was not only also handcrafted by Nukritas 2xx, but also imbued with Kirin's magic, his blessing making anyone feel warm and fuzzy when holding it close to their heart.
+The most adorable and huggable plush doll of the cutest and sweetest emperor. This was not only also handcrafted by Nukritas 2xx, but also imbued with Kirin's magic, his blessing making anyone feel warm and fuzzy when holding it close to their heart. Like the Saya plush, also emits a cute giggle when squeezed.
 
 ## The HUD
 
@@ -471,15 +470,15 @@ When the **Automap** is open, the map name and stats will also be shown here.
 
 ### Bottom left corner
 
-Your health, armor and fuel, along with an inventory box, and all active armors and powerups (with their respective durability/duration).
+Your health and fuel, along with an inventory box, and all active armors and powerups (with their respective durability/duration).
 
 ### Bottom border
 
-Pickup messages. Repeated pickups will have a multiplier suffix added. Total messages shown are also configurable.
+Voice acting subtitles and pickup messages. Repeated pickups will have a multiplier suffix added. Total messages shown are also configurable.
 
 ### Bottom right corner
 
-Current equipped weapon stats. Ammo(s) and such. Below it, the weapon slots.
+The weapon slots. Above them, the currently equipped weapon's stats (i.e.: ammo(s) and such).
 
 ### Targeter
 
